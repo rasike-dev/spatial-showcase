@@ -1,0 +1,18 @@
+[
+  {
+    "title": "Impact Analyzer",
+    "description": "Enterprise-scale dependency analysis system for large codebases. Provides real-time impact assessment and visualization.",
+    "image": "/public/textures/webxr.png"
+  },
+  {
+    "title": "WebXR Portfolio",
+    "description": "Immersive virtual reality portfolio experience built with Immersive Web SDK. Showcases projects in a spatial environment.",
+    "image": "/public/textures/webxr.png"
+  },
+  {
+    "title": "AI Art Generator",
+    "description": "Machine learning powered art creation tool that generates unique digital artworks using advanced neural networks.",
+    "image": "/public/textures/webxr.png"
+  }
+]
+  

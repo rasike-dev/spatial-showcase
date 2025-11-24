@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+dist/
+
+# Build outputs
+*.min.js
+*.bundle.js
+
+# Generated files
+public/ui/*.json
+
+# Lock files
+package-lock.json
+yarn.lock
+

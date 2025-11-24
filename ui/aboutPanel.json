@@ -1,0 +1,37 @@
+{
+  "type": "panel",
+  "background": "#1a1a1a",
+  "borderRadius": 12,
+  "padding": 24,
+  "elements": [
+    {
+      "type": "text",
+      "binding": "dynamicName",
+      "fontSize": 36,
+      "color": "#ffffff",
+      "align": "center",
+      "fontWeight": "bold",
+      "marginBottom": 12
+    },
+    {
+      "type": "text",
+      "binding": "dynamicRole",
+      "fontSize": 24,
+      "color": "#4a9eff",
+      "align": "center",
+      "fontWeight": "medium",
+      "marginBottom": 20
+    },
+    {
+      "type": "text",
+      "binding": "dynamicBio",
+      "fontSize": 20,
+      "color": "#cccccc",
+      "align": "left",
+      "lineHeight": 1.6
+    }
+  ]
+}
+
+
+

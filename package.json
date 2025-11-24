@@ -1,0 +1,33 @@
+{
+  "name": "spatial-showcase",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .js",
+    "lint:fix": "eslint src --ext .js --fix",
+    "format": "prettier --write \"src/**/*.js\"",
+    "format:check": "prettier --check \"src/**/*.js\""
+  },
+  "dependencies": {
+    "@iwsdk/core": "0.2.0",
+    "three": "npm:super-three@0.177.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@iwsdk/vite-plugin-gltf-optimizer": "0.2.0",
+    "@iwsdk/vite-plugin-iwer": "0.2.0",
+    "@iwsdk/vite-plugin-uikitml": "0.2.0",
+    "@types/three": "^0.178.1",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "vite": "^7.1.4",
+    "vite-plugin-mkcert": "^1.17.0"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

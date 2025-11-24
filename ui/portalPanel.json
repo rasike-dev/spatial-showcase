@@ -1,0 +1,16 @@
+{
+    "type": "panel",
+    "background": "#222222",
+    "borderRadius": 12,
+    "padding": 16,
+    "elements": [
+      {
+        "type": "text",
+        "binding": "dynamicTitle",
+        "fontSize": 32,
+        "color": "#ffffff",
+        "align": "center"
+      }
+    ]
+  }
+  

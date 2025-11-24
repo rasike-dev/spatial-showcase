@@ -1,0 +1,70 @@
+{
+  "type": "panel",
+  "background": "#1a1a1a",
+  "borderRadius": 12,
+  "padding": 24,
+  "elements": [
+    {
+      "type": "text",
+      "text": "Get In Touch",
+      "fontSize": 32,
+      "color": "#ffffff",
+      "align": "center",
+      "fontWeight": "bold",
+      "marginBottom": 24
+    },
+    {
+      "type": "text",
+      "text": "Email:",
+      "fontSize": 20,
+      "color": "#4a9eff",
+      "align": "left",
+      "fontWeight": "medium",
+      "marginBottom": 8
+    },
+    {
+      "type": "text",
+      "binding": "dynamicEmail",
+      "fontSize": 18,
+      "color": "#cccccc",
+      "align": "left",
+      "marginBottom": 16
+    },
+    {
+      "type": "text",
+      "text": "LinkedIn:",
+      "fontSize": 20,
+      "color": "#4a9eff",
+      "align": "left",
+      "fontWeight": "medium",
+      "marginBottom": 8
+    },
+    {
+      "type": "text",
+      "binding": "dynamicLinkedIn",
+      "fontSize": 18,
+      "color": "#cccccc",
+      "align": "left",
+      "marginBottom": 16
+    },
+    {
+      "type": "text",
+      "text": "GitHub:",
+      "fontSize": 20,
+      "color": "#4a9eff",
+      "align": "left",
+      "fontWeight": "medium",
+      "marginBottom": 8
+    },
+    {
+      "type": "text",
+      "binding": "dynamicGitHub",
+      "fontSize": 18,
+      "color": "#cccccc",
+      "align": "left"
+    }
+  ]
+}
+
+
+
