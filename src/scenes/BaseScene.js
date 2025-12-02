@@ -1,4 +1,7 @@
 import { CAMERA } from "../constants/sceneConstants.js";
+import { getSceneLoader } from "./sceneRegistry.js";
+import { logger } from "../utils/logger.js";
+import { safeDynamicImport, handleSceneLoadError } from "../utils/errorHandler.js";
 
 /**
  * Base class providing common scene utilities such as camera setup and entity tracking.
@@ -41,5 +44,28 @@ export class BaseScene {
       this.world.destroyEntity(entity);
     });
     this.entities = [];
+  }
+
+  /**
+   * Loads another scene by ID using the shared scene registry.
+   * @param {string} targetSceneId
+   */
+  async navigateToScene(targetSceneId) {
+    const loader = getSceneLoader(targetSceneId);
+    if (!loader) {
+      logger.warn(`[SceneNavigation] No loader registered for "${targetSceneId}"`);
+      return;
+    }
+    logger.info(`[SceneNavigation] Transition -> ${targetSceneId}`);
+    try {
+      const SceneClass = await safeDynamicImport(loader, `scene "${targetSceneId}"`);
+      if (!SceneClass) {
+        logger.warn(`[SceneNavigation] Loader for "${targetSceneId}" returned empty module`);
+        return;
+      }
+      this.sceneManager.loadScene(SceneClass);
+    } catch (error) {
+      handleSceneLoadError(targetSceneId, error);
+    }
   }
 }

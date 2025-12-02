@@ -1,10 +1,8 @@
 import { PanelUI } from "@iwsdk/core";
-
-// eslint-disable-next-line
-import artData from "../content/art.json" assert { type: "json" };
 import { createBackButton } from "../components/BackButton.js";
 import { CAMERA, GALLERY } from "../constants/sceneConstants.js";
 import { BaseScene } from "./BaseScene.js";
+import { getShowcaseScene } from "../content/showcaseContent.js";
 
 export class ArtGalleryScene extends BaseScene {
   constructor(world, sceneManager) {
@@ -12,32 +10,29 @@ export class ArtGalleryScene extends BaseScene {
   }
 
   init() {
-    // Set camera position
     this.setupCamera();
 
-    // Create back button to return to main hall
-    this.createBackButton();
+    this.sceneData = getShowcaseScene("gallery");
+    if (!this.sceneData) return;
 
-    // Display art pieces in a gallery layout
-    artData.forEach((art, index) => {
-      this.createArtPanel(art, index);
+    createBackButton(this.world, this.sceneManager, this.entities);
+
+    (this.sceneData.panels || []).forEach((panel, index) => {
+      this.createArtPanel(panel, index, this.sceneData.panels.length);
     });
   }
 
-  createBackButton() {
-    createBackButton(this.world, this.sceneManager, this.entities);
-  }
-
-  createArtPanel(art, index) {
+  createArtPanel(panel, index, totalPanels) {
     const radius = GALLERY.ART.radius;
-    const angle = (index / artData.length) * Math.PI * 2;
+    const angle = totalPanels > 0 ? (index / totalPanels) * Math.PI * 2 : 0;
     const x = Math.cos(angle) * radius;
     const z = Math.sin(angle) * radius;
 
     const entity = this.world.createTransformEntity().addComponent(PanelUI, {
       config: "/ui/artPanel.json",
-      dynamicTitle: art.title,
-      dynamicImage: art.image,
+      dynamicTitle: panel.title,
+      dynamicImage: panel.image,
+      dynamicDescription: panel.description || "",
       maxWidth: GALLERY.ART.panel.maxWidth,
       maxHeight: GALLERY.ART.panel.maxHeight
     });
@@ -49,7 +44,6 @@ export class ArtGalleryScene extends BaseScene {
       CAMERA.DEFAULT_POSITION.z
     );
 
-    this.trackEntity(entity);
     this.trackEntity(entity);
   }
 }

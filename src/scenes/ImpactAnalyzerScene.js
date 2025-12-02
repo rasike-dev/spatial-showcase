@@ -1,14 +1,15 @@
 import { PanelUI } from "@iwsdk/core";
-import { bindPanelButton } from "../utils/panelBindings.js";
-import { CAMERA, PORTAL } from "../constants/sceneConstants.js";
+import { CAMERA, CONTENT_PANEL } from "../constants/sceneConstants.js";
 import { logger } from "../utils/logger.js";
 import { BaseScene } from "./BaseScene.js";
 import { getShowcaseScene } from "../content/showcaseContent.js";
+import { createBackButton } from "../components/BackButton.js";
+import { bindPanelButton } from "../utils/panelBindings.js";
 
 /**
- * Main hall scene that acts as the navigation hub for all other scenes.
+ * Impact Analyzer scene showcasing distributed systems architecture.
  */
-export class MainHallScene extends BaseScene {
+export class ImpactAnalyzerScene extends BaseScene {
   constructor(world, sceneManager) {
     super(world, sceneManager);
   }
@@ -17,35 +18,34 @@ export class MainHallScene extends BaseScene {
    * Lifecycle hook invoked by the scene manager to set up entities.
    */
   init() {
-    // Set camera position on entering scene
     this.setupCamera();
 
-    this.sceneData = getShowcaseScene("main_hall");
+    this.sceneData = getShowcaseScene("impact_analyzer");
     if (!this.sceneData) {
-      logger.warn("[MainHallScene] Missing scene data for main_hall");
+      logger.warn("[ImpactAnalyzerScene] Missing scene data for impact_analyzer");
       return;
     }
 
-    logger.info("MainHallScene: Rendering panels and teleports from content...");
+    logger.info("ImpactAnalyzerScene: Rendering impact panels...");
+    createBackButton(this.world, this.sceneManager, this.entities);
     this.renderPanels(this.sceneData.panels || []);
     this.renderTeleports(this.sceneData.teleports || []);
 
-    logger.info(`MainHallScene: Created ${this.entities.length} entities`);
+    logger.info(`ImpactAnalyzerScene: Created ${this.entities.length} entities`);
   }
 
   renderPanels(panels) {
     panels.forEach((panel, index) => {
       const entity = this.world.createTransformEntity().addComponent(PanelUI, {
-        config: "/ui/portalPanel.json",
-        maxWidth: 1.4,
-        maxHeight: 0.6,
+        config: "/ui/projectPanel.json",
+        maxWidth: CONTENT_PANEL.maxWidth,
+        maxHeight: CONTENT_PANEL.maxHeight,
         dynamicTitle: panel.title,
         dynamicDescription: panel.description || "",
         dynamicImage: panel.image || ""
       });
 
-      const xOffset = index * 1.6 - (panels.length - 1) * 0.8;
-      entity.object3D.position.set(xOffset, 1.7, -1.6);
+      entity.object3D.position.set(0, CONTENT_PANEL.Y_POSITION, CONTENT_PANEL.Z_POSITION);
       entity.object3D.lookAt(
         CAMERA.DEFAULT_POSITION.x,
         CAMERA.DEFAULT_POSITION.y,
@@ -65,34 +65,27 @@ export class MainHallScene extends BaseScene {
     });
   }
 
-  /**
-   * Creates a single portal button that loads the specified scene.
-   * @param {string} label - Text displayed on the portal UI
-   * @param {number} xOffset - Horizontal placement of the portal
-   * @param {string} targetSceneName - Key of the target scene to load
-   */
-  createPortal(label, xOffset, targetSceneName) {
+  createPortal(label, xOffset, targetSceneId) {
     logger.debug(`Creating portal: ${label} at x=${xOffset}`);
 
     const entity = this.world.createTransformEntity().addComponent(PanelUI, {
-      config: PORTAL.PANEL.configPath,
-      maxWidth: PORTAL.PANEL.maxWidth,
-      maxHeight: PORTAL.PANEL.maxHeight
+      config: "/ui/portalPanel.json",
+      maxWidth: 1.1,
+      maxHeight: 0.45
     });
 
-    entity.object3D.position.set(xOffset, PORTAL.DEFAULT_Y_POSITION, PORTAL.PORTAL_Z);
-    // Make panel face the camera (look at origin)
+    entity.object3D.position.set(xOffset, 1.4, 2);
     entity.object3D.lookAt(
       CAMERA.DEFAULT_POSITION.x,
       CAMERA.DEFAULT_POSITION.y,
       CAMERA.DEFAULT_POSITION.z
     );
-    logger.debug(`Portal "${label}" positioned at:`, entity.object3D.position);
 
     this.trackEntity(entity);
     bindPanelButton(entity, {
       label,
-      onClick: () => this.navigateToScene(targetSceneName)
+      onClick: () => this.navigateToScene(targetSceneId)
     });
   }
 }
+

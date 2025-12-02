@@ -95,7 +95,8 @@ export default [
       "src/scenes/AboutScene.js",
       "src/scenes/ArtGalleryScene.js",
       "src/scenes/PhotoScene.js",
-      "src/scenes/ProjectsScene.js"
+      "src/scenes/ProjectsScene.js",
+      "src/content/showcaseContent.js"
     ]
   }
 ];

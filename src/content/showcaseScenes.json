@@ -1,0 +1,154 @@
+{
+  "main_hall": {
+    "panels": [
+      {
+        "id": "welcome",
+        "title": "Welcome to the Echelon Immersive Showcase",
+        "description": "A futuristic multi-room journey celebrating innovation and craft.",
+        "image": "/assets/images/profile.jpg"
+      },
+      {
+        "id": "about",
+        "title": "About Rasike",
+        "description": "Software Architect & Digital Creator with 18+ years of experience shaping spatial futures."
+      }
+    ],
+    "teleports": [
+      {
+        "id": "tp_gallery",
+        "label": "Gallery",
+        "target": "gallery"
+      },
+      {
+        "id": "tp_inno",
+        "label": "Innovation Lab",
+        "target": "innovation_lab"
+      }
+    ]
+  },
+  "gallery": {
+    "panels": [
+      {
+        "id": "aiart",
+        "title": "AI Art – Ethereal Worlds",
+        "description": "Curated AI dreamscapes inspired by architecture and nature.",
+        "image": "/assets/images/collection_01.jpg"
+      },
+      {
+        "id": "photo",
+        "title": "Photography",
+        "description": "Sri Lanka & beyond – cinematic moments captured on the move.",
+        "image": "/assets/images/collection_02.jpg"
+      }
+    ],
+    "teleports": [
+      {
+        "id": "tp_main",
+        "label": "Main Hall",
+        "target": "main_hall"
+      }
+    ]
+  },
+  "innovation_lab": {
+    "panels": [
+      {
+        "id": "mt",
+        "title": "Microservice Ecosystem",
+        "description": "Enterprise-grade architecture enabling millions of requests per minute.",
+        "image": "/assets/images/collection_03.jpg"
+      },
+      {
+        "id": "trade",
+        "title": "Trading Platform",
+        "description": "Real-time dashboards for global equity, FX, and crypto markets.",
+        "image": "/assets/images/trading_dashboard.png"
+      },
+      {
+        "id": "aitools",
+        "title": "AI Tools",
+        "description": "Developer automation copilots and workflow accelerators.",
+        "image": "/assets/images/workflow.png"
+      }
+    ],
+    "teleports": [
+      {
+        "id": "tp_main",
+        "label": "Main Hall",
+        "target": "main_hall"
+      },
+      {
+        "id": "tp_imp",
+        "label": "Impact Analyzer",
+        "target": "impact_analyzer"
+      }
+    ]
+  },
+  "impact_analyzer": {
+    "panels": [
+      {
+        "id": "impact",
+        "title": "Impact Analyzer Engine",
+        "description": "Distributed intelligence measuring the ripple effects of every launch.",
+        "image": "/assets/images/impact_analyzer_diagram.png"
+      }
+    ],
+    "teleports": [
+      {
+        "id": "tp_inno",
+        "label": "Innovation Lab",
+        "target": "innovation_lab"
+      },
+      {
+        "id": "tp_forge",
+        "label": "Creator Forge",
+        "target": "creator_forge"
+      }
+    ]
+  },
+  "creator_forge": {
+    "panels": [
+      {
+        "id": "wf",
+        "title": "My Workflow",
+        "description": "AI → Architecture → Prototype → Deploy – a lightning-fast build loop.",
+        "image": "/assets/images/workflow.png"
+      },
+      {
+        "id": "tools",
+        "title": "Tools",
+        "description": "Spatial SDK, React, Go, Java, TS, Azure, GCP, AWS – the multi-cloud arsenal."
+      }
+    ],
+    "teleports": [
+      {
+        "id": "tp_impact",
+        "label": "Impact Analyzer",
+        "target": "impact_analyzer"
+      },
+      {
+        "id": "tp_contact",
+        "label": "Contact Portal",
+        "target": "contact_portal"
+      }
+    ]
+  },
+  "contact_portal": {
+    "panels": [
+      {
+        "id": "contact",
+        "title": "Work Together",
+        "description": "Visit rasike.me",
+        "cta": "Visit Website"
+      }
+    ],
+    "portal": "https://www.rasike.me",
+    "teleports": [
+      {
+        "id": "tp_main",
+        "label": "Main Hall",
+        "target": "main_hall"
+      }
+    ]
+  }
+}
+
