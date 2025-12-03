@@ -96,26 +96,28 @@ export class CreatorForgeScene extends BaseScene {
       return;
     }
 
-    // Only show one forward button - center it
+    // Only show one forward button - position it below back button
     const teleport = forwardTeleports[0];
     logger.info(`[CreatorForgeScene] Rendering forward teleport: ${teleport.label}`);
 
-    // Center the single forward navigation button
-    this.createPortal(teleport.label, 0, teleport.target);
+    // Position forward button below back button (vertically stacked, centered)
+    // Back button is at x=0, y=1.0 (top)
+    // Forward button at x=0, y=0.5 (bottom) - more spacing to avoid overlap
+    this.createPortal(teleport.label, 0, teleport.target, 0.5);
 
     logger.info(`[CreatorForgeScene] Created forward navigation portal: ${teleport.label}`);
   }
 
-  createPortal(label, xOffset, targetSceneId) {
-    logger.info(`[CreatorForgeScene] Creating portal: ${label} at x=${xOffset}`);
+  createPortal(label, xOffset, targetSceneId, yOffset = 0.8) {
+    logger.info(`[CreatorForgeScene] Creating portal: ${label} at x=${xOffset}, y=${yOffset}`);
 
     const entity = this.world.createTransformEntity().addComponent(PanelUI, {
       config: "/ui/portalPanel.json",
-      maxWidth: 1.2,
-      maxHeight: 0.5
+      maxWidth: 0.9, // Smaller width
+      maxHeight: 0.35 // Smaller height
     });
 
-    entity.object3D.position.set(xOffset, 0.8, -2.5);
+    entity.object3D.position.set(xOffset, yOffset, -2.5);
     entity.object3D.lookAt(0, 1.6, 0);
 
     this.trackEntity(entity);
