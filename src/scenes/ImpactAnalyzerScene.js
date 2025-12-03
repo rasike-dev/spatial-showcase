@@ -13,6 +13,8 @@ import { bindPanelContent } from "../utils/panelContent.js";
 export class ImpactAnalyzerScene extends BaseScene {
   constructor(world, sceneManager) {
     super(world, sceneManager);
+    // Shared navigation flag to prevent multiple clicks
+    this.isNavigating = false;
   }
 
   /**
@@ -154,32 +156,54 @@ export class ImpactAnalyzerScene extends BaseScene {
 
     this.trackEntity(entity);
 
-    // Prevent multiple rapid clicks
-    let isNavigating = false;
+    // Create a unique handler for this portal
+    const handleClick = (event) => {
+      logger.info(`[ImpactAnalyzerScene] Click handler called for: ${label}`, {
+        event,
+        targetSceneId,
+        isNavigating: this.isNavigating
+      });
 
+      if (this.isNavigating) {
+        logger.warn("[ImpactAnalyzerScene] Navigation already in progress, ignoring click");
+        return;
+      }
+
+      // Validate target scene
+      if (targetSceneId !== "creator_forge") {
+        logger.warn(
+          `[ImpactAnalyzerScene] Invalid target scene: ${targetSceneId}, expected creator_forge`
+        );
+        return;
+      }
+
+      this.isNavigating = true;
+      logger.info(`[ImpactAnalyzerScene] Starting navigation: ${label} -> creator_forge`);
+
+      // Navigate to Creator Forge - don't prevent default, just navigate
+      this.navigateToScene("creator_forge")
+        .then(() => {
+          logger.info("[ImpactAnalyzerScene] Navigation to Creator Forge successful");
+        })
+        .catch((error) => {
+          logger.error("[ImpactAnalyzerScene] Navigation failed:", error);
+          // Reset flag on error so user can try again
+          this.isNavigating = false;
+        })
+        .finally(() => {
+          // Reset after a longer delay to ensure scene transition completes
+          setTimeout(() => {
+            this.isNavigating = false;
+          }, 2000);
+        });
+    };
+
+    // Bind immediately - don't delay
     bindPanelButton(entity, {
       label,
-      onClick: () => {
-        if (isNavigating) {
-          logger.warn("[ImpactAnalyzerScene] Navigation already in progress, ignoring click");
-          return;
-        }
-
-        isNavigating = true;
-        logger.info(`[ImpactAnalyzerScene] Portal clicked: ${label} -> ${targetSceneId}`);
-
-        // Ensure we're navigating to creator_forge for forward navigation
-        const targetScene = targetSceneId === "creator_forge" ? "creator_forge" : targetSceneId;
-        logger.info(`[ImpactAnalyzerScene] Navigating to: ${targetScene}`);
-
-        this.navigateToScene(targetScene).finally(() => {
-          // Reset after a delay to allow scene transition
-          setTimeout(() => {
-            isNavigating = false;
-          }, 1000);
-        });
-      }
+      onClick: handleClick
     });
+    logger.info(`[ImpactAnalyzerScene] Button binding initiated for: ${label}`);
 
     logger.info(`[ImpactAnalyzerScene] Portal "${label}" created successfully`);
   }

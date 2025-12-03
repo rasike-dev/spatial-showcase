@@ -13,6 +13,8 @@ import { bindPanelContent } from "../utils/panelContent.js";
 export class InnovationLabScene extends BaseScene {
   constructor(world, sceneManager) {
     super(world, sceneManager);
+    // Shared navigation flag to prevent multiple clicks
+    this.isNavigating = false;
   }
 
   /**
@@ -123,32 +125,54 @@ export class InnovationLabScene extends BaseScene {
 
     this.trackEntity(entity);
 
-    // Prevent multiple rapid clicks
-    let isNavigating = false;
+    // Create a unique handler for this portal
+    const handleClick = (event) => {
+      logger.info(`[InnovationLabScene] Click handler called for: ${label}`, {
+        event,
+        targetSceneId,
+        isNavigating: this.isNavigating
+      });
 
+      if (this.isNavigating) {
+        logger.warn("[InnovationLabScene] Navigation already in progress, ignoring click");
+        return;
+      }
+
+      // Validate target scene
+      if (targetSceneId !== "impact_analyzer") {
+        logger.warn(
+          `[InnovationLabScene] Invalid target scene: ${targetSceneId}, expected impact_analyzer`
+        );
+        return;
+      }
+
+      this.isNavigating = true;
+      logger.info(`[InnovationLabScene] Starting navigation: ${label} -> impact_analyzer`);
+
+      // Navigate to Impact Analyzer - don't prevent default, just navigate
+      this.navigateToScene("impact_analyzer")
+        .then(() => {
+          logger.info("[InnovationLabScene] Navigation to Impact Analyzer successful");
+        })
+        .catch((error) => {
+          logger.error("[InnovationLabScene] Navigation failed:", error);
+          // Reset flag on error so user can try again
+          this.isNavigating = false;
+        })
+        .finally(() => {
+          // Reset after a longer delay to ensure scene transition completes
+          setTimeout(() => {
+            this.isNavigating = false;
+          }, 2000);
+        });
+    };
+
+    // Bind immediately - don't delay
     bindPanelButton(entity, {
       label,
-      onClick: () => {
-        if (isNavigating) {
-          logger.warn("[InnovationLabScene] Navigation already in progress, ignoring click");
-          return;
-        }
-
-        isNavigating = true;
-        logger.info(`[InnovationLabScene] Portal clicked: ${label} -> ${targetSceneId}`);
-
-        // Ensure we're navigating to impact_analyzer for forward navigation
-        const targetScene = targetSceneId === "impact_analyzer" ? "impact_analyzer" : targetSceneId;
-        logger.info(`[InnovationLabScene] Navigating to: ${targetScene}`);
-
-        this.navigateToScene(targetScene).finally(() => {
-          // Reset after a delay to allow scene transition
-          setTimeout(() => {
-            isNavigating = false;
-          }, 1000);
-        });
-      }
+      onClick: handleClick
     });
+    logger.info(`[InnovationLabScene] Button binding initiated for: ${label}`);
 
     logger.info(`[InnovationLabScene] Portal "${label}" created successfully`);
   }

@@ -40,16 +40,31 @@ export function bindPanelButton(
       const buttonElement = document.getElementById?.(buttonId);
       if (buttonElement) {
         if (!buttonElement.__panelBindingAttached) {
-          buttonElement.addEventListener?.("click", onClick);
+          // Remove any existing listeners first
+          const newOnClick = (event) => {
+            logger.info(`[PanelUI] Button clicked for entity ${entity.index} (${label})`, { event });
+            try {
+              onClick(event);
+            } catch (error) {
+              logger.error(`[PanelUI] Error in click handler for entity ${entity.index}:`, error);
+            }
+          };
+          buttonElement.addEventListener?.("click", newOnClick);
           buttonElement.__panelBindingAttached = true;
-          logger.debug(`[PanelUI] Bound click for entity ${entity.index} (${label})`);
+          logger.info(`[PanelUI] Bound click for entity ${entity.index} (${label})`);
+        } else {
+          logger.debug(`[PanelUI] Click handler already attached for entity ${entity.index} (${label})`);
         }
       } else if (attempt < maxAttempts) {
         requestAnimationFrame(() => attemptBinding(attempt + 1));
         return;
+      } else {
+        logger.warn(
+          `[PanelUI] Button element "${buttonId}" not found for entity ${entity.index} after ${maxAttempts} attempts`
+        );
       }
     } else {
-      logger.warn(`[PanelUI] Missing buttonId for entity ${entity.index}`);
+      logger.warn(`[PanelUI] Missing buttonId or onClick for entity ${entity.index}`);
     }
   }
 

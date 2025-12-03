@@ -13,6 +13,8 @@ import { bindPanelContent } from "../utils/panelContent.js";
 export class CreatorForgeScene extends BaseScene {
   constructor(world, sceneManager) {
     super(world, sceneManager);
+    // Shared navigation flag to prevent multiple clicks
+    this.isNavigating = false;
   }
 
   /**
@@ -118,13 +120,54 @@ export class CreatorForgeScene extends BaseScene {
 
     this.trackEntity(entity);
 
+    // Create a unique handler for this portal
+    const handleClick = (event) => {
+      logger.info(`[CreatorForgeScene] Click handler called for: ${label}`, {
+        event,
+        targetSceneId,
+        isNavigating: this.isNavigating
+      });
+
+      if (this.isNavigating) {
+        logger.warn("[CreatorForgeScene] Navigation already in progress, ignoring click");
+        return;
+      }
+
+      // Validate target scene
+      if (targetSceneId !== "contact_portal") {
+        logger.warn(
+          `[CreatorForgeScene] Invalid target scene: ${targetSceneId}, expected contact_portal`
+        );
+        return;
+      }
+
+      this.isNavigating = true;
+      logger.info(`[CreatorForgeScene] Starting navigation: ${label} -> contact_portal`);
+
+      // Navigate to Contact Portal
+      this.navigateToScene("contact_portal")
+        .then(() => {
+          logger.info("[CreatorForgeScene] Navigation to Contact Portal successful");
+        })
+        .catch((error) => {
+          logger.error("[CreatorForgeScene] Navigation failed:", error);
+          // Reset flag on error so user can try again
+          this.isNavigating = false;
+        })
+        .finally(() => {
+          // Reset after a longer delay to ensure scene transition completes
+          setTimeout(() => {
+            this.isNavigating = false;
+          }, 2000);
+        });
+    };
+
+    // Bind immediately - don't delay
     bindPanelButton(entity, {
       label,
-      onClick: () => {
-        logger.info(`[CreatorForgeScene] Portal clicked: ${label} -> ${targetSceneId}`);
-        this.navigateToScene(targetSceneId);
-      }
+      onClick: handleClick
     });
+    logger.info(`[CreatorForgeScene] Button binding initiated for: ${label}`);
 
     logger.info(`[CreatorForgeScene] Portal "${label}" created successfully`);
   }
