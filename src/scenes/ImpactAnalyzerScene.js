@@ -116,28 +116,28 @@ export class ImpactAnalyzerScene extends BaseScene {
   }
 
   renderTeleports(teleports) {
-    // Filter out "Innovation Lab" teleport if we came from there (back button handles going back)
-    // But keep forward teleports
-    const forwardTeleports = teleports.filter((t) => t.target !== "innovation_lab");
+    // Only show forward navigation to Creator Forge
+    // Back button handles going back to Innovation Lab
+    const creatorForgeTeleport = teleports.find((t) => t.target === "creator_forge");
 
-    if (forwardTeleports.length === 0) {
-      logger.info("[ImpactAnalyzerScene] No forward teleports to render");
+    if (!creatorForgeTeleport) {
+      logger.warn("[ImpactAnalyzerScene] Creator Forge teleport not found in scene data");
+      // Fallback: create it explicitly
+      logger.info("[ImpactAnalyzerScene] Creating explicit Creator Forge forward navigation");
+      this.createPortal("Creator Forge", 0, "creator_forge");
       return;
     }
 
-    logger.info(`[ImpactAnalyzerScene] Rendering ${forwardTeleports.length} forward teleports`);
+    logger.info(
+      `[ImpactAnalyzerScene] Rendering forward teleport to Creator Forge: ${creatorForgeTeleport.label}`
+    );
 
-    // Position teleports below panels
-    const spacing = 1.8;
-    const offsetStart =
-      forwardTeleports.length > 1 ? -((forwardTeleports.length - 1) * spacing) / 2 : 0;
+    // Center the single forward navigation button
+    this.createPortal(creatorForgeTeleport.label, 0, creatorForgeTeleport.target);
 
-    forwardTeleports.forEach((teleport, index) => {
-      const xOffset = offsetStart + index * spacing;
-      this.createPortal(teleport.label, xOffset, teleport.target);
-    });
-
-    logger.info(`[ImpactAnalyzerScene] Created ${forwardTeleports.length} forward navigation portals`);
+    logger.info(
+      `[ImpactAnalyzerScene] Created forward navigation portal to Creator Forge: ${creatorForgeTeleport.label}`
+    );
   }
 
   createPortal(label, xOffset, targetSceneId) {
@@ -154,11 +154,30 @@ export class ImpactAnalyzerScene extends BaseScene {
 
     this.trackEntity(entity);
 
+    // Prevent multiple rapid clicks
+    let isNavigating = false;
+
     bindPanelButton(entity, {
       label,
       onClick: () => {
+        if (isNavigating) {
+          logger.warn("[ImpactAnalyzerScene] Navigation already in progress, ignoring click");
+          return;
+        }
+
+        isNavigating = true;
         logger.info(`[ImpactAnalyzerScene] Portal clicked: ${label} -> ${targetSceneId}`);
-        this.navigateToScene(targetSceneId);
+
+        // Ensure we're navigating to creator_forge for forward navigation
+        const targetScene = targetSceneId === "creator_forge" ? "creator_forge" : targetSceneId;
+        logger.info(`[ImpactAnalyzerScene] Navigating to: ${targetScene}`);
+
+        this.navigateToScene(targetScene).finally(() => {
+          // Reset after a delay to allow scene transition
+          setTimeout(() => {
+            isNavigating = false;
+          }, 1000);
+        });
       }
     });
 

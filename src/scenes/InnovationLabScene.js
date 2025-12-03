@@ -85,27 +85,28 @@ export class InnovationLabScene extends BaseScene {
   }
 
   renderTeleports(teleports) {
-    // Filter out "Main Hall" teleport since we have back button
-    const forwardTeleports = teleports.filter((t) => t.target !== "main_hall");
+    // Only show forward navigation to Impact Analyzer
+    // Back button handles going back to Main Hall
+    const impactAnalyzerTeleport = teleports.find((t) => t.target === "impact_analyzer");
 
-    if (forwardTeleports.length === 0) {
-      logger.info("[InnovationLabScene] No forward teleports to render");
+    if (!impactAnalyzerTeleport) {
+      logger.warn("[InnovationLabScene] Impact Analyzer teleport not found in scene data");
+      // Fallback: create it explicitly
+      logger.info("[InnovationLabScene] Creating explicit Impact Analyzer forward navigation");
+      this.createPortal("Impact Analyzer", 0, "impact_analyzer");
       return;
     }
 
-    logger.info(`[InnovationLabScene] Rendering ${forwardTeleports.length} forward teleports`);
+    logger.info(
+      `[InnovationLabScene] Rendering forward teleport to Impact Analyzer: ${impactAnalyzerTeleport.label}`
+    );
 
-    // Position teleports below panels
-    const spacing = 1.8;
-    const offsetStart =
-      forwardTeleports.length > 1 ? -((forwardTeleports.length - 1) * spacing) / 2 : 0;
+    // Center the single forward navigation button
+    this.createPortal(impactAnalyzerTeleport.label, 0, impactAnalyzerTeleport.target);
 
-    forwardTeleports.forEach((teleport, index) => {
-      const xOffset = offsetStart + index * spacing;
-      this.createPortal(teleport.label, xOffset, teleport.target);
-    });
-
-    logger.info(`[InnovationLabScene] Created ${forwardTeleports.length} forward navigation portals`);
+    logger.info(
+      `[InnovationLabScene] Created forward navigation portal to Impact Analyzer: ${impactAnalyzerTeleport.label}`
+    );
   }
 
   createPortal(label, xOffset, targetSceneId) {
@@ -122,11 +123,30 @@ export class InnovationLabScene extends BaseScene {
 
     this.trackEntity(entity);
 
+    // Prevent multiple rapid clicks
+    let isNavigating = false;
+
     bindPanelButton(entity, {
       label,
       onClick: () => {
+        if (isNavigating) {
+          logger.warn("[InnovationLabScene] Navigation already in progress, ignoring click");
+          return;
+        }
+
+        isNavigating = true;
         logger.info(`[InnovationLabScene] Portal clicked: ${label} -> ${targetSceneId}`);
-        this.navigateToScene(targetSceneId);
+
+        // Ensure we're navigating to impact_analyzer for forward navigation
+        const targetScene = targetSceneId === "impact_analyzer" ? "impact_analyzer" : targetSceneId;
+        logger.info(`[InnovationLabScene] Navigating to: ${targetScene}`);
+
+        this.navigateToScene(targetScene).finally(() => {
+          // Reset after a delay to allow scene transition
+          setTimeout(() => {
+            isNavigating = false;
+          }, 1000);
+        });
       }
     });
 

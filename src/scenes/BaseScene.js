@@ -109,13 +109,20 @@ export class BaseScene {
   /**
    * Loads another scene by ID using the shared scene registry.
    * @param {string} targetSceneId
+   * @returns {Promise<void>}
    */
   async navigateToScene(targetSceneId) {
+    if (!targetSceneId) {
+      logger.error("[SceneNavigation] No target scene ID provided");
+      return;
+    }
+
     const loader = getSceneLoader(targetSceneId);
     if (!loader) {
       logger.warn(`[SceneNavigation] No loader registered for "${targetSceneId}"`);
       return;
     }
+
     logger.info(`[SceneNavigation] Transition -> ${targetSceneId}`);
     try {
       const SceneClass = await safeDynamicImport(loader, `scene "${targetSceneId}"`);
@@ -126,6 +133,7 @@ export class BaseScene {
       this.sceneManager.loadScene(SceneClass);
     } catch (error) {
       handleSceneLoadError(targetSceneId, error);
+      throw error; // Re-throw so caller can handle it
     }
   }
 }
