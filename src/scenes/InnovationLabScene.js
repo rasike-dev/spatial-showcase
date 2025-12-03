@@ -95,8 +95,8 @@ export class InnovationLabScene extends BaseScene {
       logger.warn("[InnovationLabScene] Impact Analyzer teleport not found in scene data");
       // Fallback: create it explicitly
       logger.info("[InnovationLabScene] Creating explicit Impact Analyzer forward navigation");
-      // Position forward button to the right of back button (side by side)
-      this.createPortal("Impact Analyzer", 0.7, "impact_analyzer", 0.8);
+      // Position forward button below back button (vertically stacked, centered)
+      this.createPortal("Impact Analyzer", 0, "impact_analyzer", 0.5);
       return;
     }
 
@@ -104,10 +104,10 @@ export class InnovationLabScene extends BaseScene {
       `[InnovationLabScene] Rendering forward teleport to Impact Analyzer: ${impactAnalyzerTeleport.label}`
     );
 
-    // Position forward button to the right of back button (side by side)
-    // Back button is at x=-0.7 (left), forward button at x=0.7 (right)
-    // Both at y=0.8 for proper visibility
-    this.createPortal(impactAnalyzerTeleport.label, 0.7, impactAnalyzerTeleport.target, 0.8);
+    // Position forward button below back button (vertically stacked, centered)
+    // Back button is at x=0, y=0.9 (top)
+    // Forward button at x=0, y=0.5 (bottom)
+    this.createPortal(impactAnalyzerTeleport.label, 0, impactAnalyzerTeleport.target, 0.5);
 
     logger.info(
       `[InnovationLabScene] Created forward navigation portal to Impact Analyzer: ${impactAnalyzerTeleport.label}`
