@@ -81,34 +81,39 @@ export class MainHallScene extends BaseScene {
   }
 
   renderTeleports(teleports) {
-    // Position navigation buttons below the content panels
-    const spacing = 1.8;
-    const offsetStart = teleports.length > 1 ? -((teleports.length - 1) * spacing) / 2 : 0;
+    // Position navigation buttons vertically, centered, one over another
+    const verticalSpacing = 0.6; // Space between buttons vertically
+    const centerY = 0.9; // Center Y position (moved up slightly)
+    const offsetStart =
+      teleports.length > 1 ? -((teleports.length - 1) * verticalSpacing) / 2 : 0;
 
     teleports.forEach((teleport, index) => {
-      const xOffset = offsetStart + index * spacing;
-      this.createPortal(teleport.label, xOffset, teleport.target);
+      const yOffset = centerY + (offsetStart + index * verticalSpacing);
+      // Center horizontally (x=0), stack vertically
+      // Gallery (index 0) will be at top, Innovation Lab (index 1) below
+      this.createPortal(teleport.label, 0, teleport.target, yOffset);
     });
 
-    logger.info(`[MainHallScene] Created ${teleports.length} navigation portals`);
+    logger.info(`[MainHallScene] Created ${teleports.length} navigation portals (vertically stacked)`);
   }
 
   /**
    * Creates a single portal button that loads the specified scene.
    * @param {string} label - Text displayed on the portal UI
-   * @param {number} xOffset - Horizontal placement of the portal
+   * @param {number} xOffset - Horizontal placement of the portal (0 for centered)
    * @param {string} targetSceneName - Key of the target scene to load
+   * @param {number} yOffset - Vertical placement of the portal
    */
-  createPortal(label, xOffset, targetSceneName) {
-    logger.info(`[MainHallScene] Creating portal: ${label} at x=${xOffset}`);
+  createPortal(label, xOffset, targetSceneName, yOffset = 0.8) {
+    logger.info(`[MainHallScene] Creating portal: ${label} at x=${xOffset}, y=${yOffset}`);
 
     const entity = this.world.createTransformEntity().addComponent(PanelUI, {
       config: "/ui/portalPanel.json",
-      maxWidth: 1.2,
-      maxHeight: 0.5
+      maxWidth: 0.9, // Smaller width
+      maxHeight: 0.35 // Smaller height
     });
 
-    entity.object3D.position.set(xOffset, 0.8, -2.5);
+    entity.object3D.position.set(xOffset, yOffset, -2.5);
     entity.object3D.lookAt(0, 1.6, 0);
 
     this.trackEntity(entity);

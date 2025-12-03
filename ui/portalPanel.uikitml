@@ -1,25 +1,25 @@
 <style>
   .portal-panel {
     align-items: center;
-    padding: 1.6;
-    width: 11;
+    padding: 1.2;
+    width: 9;
     display: flex;
     flex-direction: column;
     background-color: #222222;
-    border-radius: 1.2;
+    border-radius: 1.0;
     cursor: pointer;
-    gap: 0.6;
+    gap: 0.4;
     pointer-events: auto;
   }
 
   .portal-title {
-    font-size: 3.2;
+    font-size: 2.4;
     color: #ffffff;
     text-align: center;
   }
 
   .portal-subtitle {
-    font-size: 1.6;
+    font-size: 1.2;
     color: #bbbbbb;
     text-align: center;
   }
