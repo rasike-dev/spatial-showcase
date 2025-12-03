@@ -34,10 +34,7 @@ export class ImpactAnalyzerScene extends BaseScene {
     // Render panels on both sides (like Main Hall)
     this.renderPanels(this.sceneData.panels || []);
 
-    // Add back button in the middle
-    createBackButton(this.world, this.sceneManager, this.entities);
-
-    // Render forward teleports (if any)
+    // Render navigation buttons (forward and backward) - no separate back button needed
     this.renderTeleports(this.sceneData.teleports || []);
 
     logger.info(`ImpactAnalyzerScene: Created ${this.entities.length} entities`);
@@ -118,32 +115,46 @@ export class ImpactAnalyzerScene extends BaseScene {
   }
 
   renderTeleports(teleports) {
-    // Only show forward navigation to Creator Forge
-    // Back button handles going back to Innovation Lab
-    const creatorForgeTeleport = teleports.find((t) => t.target === "creator_forge");
+    // Separate forward and backward navigation buttons
+    const forwardTeleport = teleports.find((t) => t.target === "creator_forge");
+    const backwardTeleport = teleports.find((t) => t.target === "innovation_lab");
 
-    if (!creatorForgeTeleport) {
-      logger.warn("[ImpactAnalyzerScene] Creator Forge teleport not found in scene data");
-      // Fallback: create it explicitly
-      logger.info("[ImpactAnalyzerScene] Creating explicit Creator Forge forward navigation");
-      this.createPortal("Creator Forge", 0, "creator_forge");
+    if (!forwardTeleport && !backwardTeleport) {
+      logger.warn("[ImpactAnalyzerScene] No teleports found in scene data");
       return;
     }
 
-    logger.info(
-      `[ImpactAnalyzerScene] Rendering forward teleport to Creator Forge: ${creatorForgeTeleport.label}`
-    );
+    // Position buttons side by side: backward on left, forward on right
+    const spacing = 1.8;
+    let buttonIndex = 0;
 
-    // Center the single forward navigation button
-    this.createPortal(creatorForgeTeleport.label, 0, creatorForgeTeleport.target);
+    // Backward button (left) - goes to Innovation Lab
+    if (backwardTeleport) {
+      logger.info(
+        `[ImpactAnalyzerScene] Rendering backward teleport to Innovation Lab: ${backwardTeleport.label}`
+      );
+      this.createPortal(backwardTeleport.label, -spacing / 2, backwardTeleport.target, "backward");
+      buttonIndex++;
+    }
+
+    // Forward button (right) - goes to Creator Forge
+    if (forwardTeleport) {
+      logger.info(
+        `[ImpactAnalyzerScene] Rendering forward teleport to Creator Forge: ${forwardTeleport.label}`
+      );
+      this.createPortal(forwardTeleport.label, spacing / 2, forwardTeleport.target, "forward");
+      buttonIndex++;
+    }
 
     logger.info(
-      `[ImpactAnalyzerScene] Created forward navigation portal to Creator Forge: ${creatorForgeTeleport.label}`
+      `[ImpactAnalyzerScene] Created ${buttonIndex} navigation buttons (backward + forward)`
     );
   }
 
-  createPortal(label, xOffset, targetSceneId) {
-    logger.info(`[ImpactAnalyzerScene] Creating portal: ${label} at x=${xOffset}`);
+  createPortal(label, xOffset, targetSceneId, direction = "forward") {
+    logger.info(
+      `[ImpactAnalyzerScene] Creating ${direction} portal: ${label} at x=${xOffset} -> ${targetSceneId}`
+    );
 
     const entity = this.world.createTransformEntity().addComponent(PanelUI, {
       config: "/ui/portalPanel.json",
@@ -158,9 +169,10 @@ export class ImpactAnalyzerScene extends BaseScene {
 
     // Create a unique handler for this portal
     const handleClick = (event) => {
-      logger.info(`[ImpactAnalyzerScene] Click handler called for: ${label}`, {
+      logger.info(`[ImpactAnalyzerScene] ${direction} button clicked: ${label}`, {
         event,
         targetSceneId,
+        direction,
         isNavigating: this.isNavigating
       });
 
@@ -169,29 +181,35 @@ export class ImpactAnalyzerScene extends BaseScene {
         return;
       }
 
-      // Validate target scene
-      if (targetSceneId !== "creator_forge") {
+      // Validate target scene based on direction
+      if (direction === "forward" && targetSceneId !== "creator_forge") {
         logger.warn(
-          `[ImpactAnalyzerScene] Invalid target scene: ${targetSceneId}, expected creator_forge`
+          `[ImpactAnalyzerScene] Invalid forward target: ${targetSceneId}, expected creator_forge`
+        );
+        return;
+      }
+      if (direction === "backward" && targetSceneId !== "innovation_lab") {
+        logger.warn(
+          `[ImpactAnalyzerScene] Invalid backward target: ${targetSceneId}, expected innovation_lab`
         );
         return;
       }
 
       this.isNavigating = true;
-      logger.info(`[ImpactAnalyzerScene] Starting navigation: ${label} -> creator_forge`);
+      logger.info(`[ImpactAnalyzerScene] Starting ${direction} navigation: ${label} -> ${targetSceneId}`);
 
-      // Navigate to Creator Forge - don't prevent default, just navigate
-      this.navigateToScene("creator_forge")
+      // Navigate to target scene
+      this.navigateToScene(targetSceneId)
         .then(() => {
-          logger.info("[ImpactAnalyzerScene] Navigation to Creator Forge successful");
+          logger.info(`[ImpactAnalyzerScene] Navigation to ${targetSceneId} successful`);
         })
         .catch((error) => {
-          logger.error("[ImpactAnalyzerScene] Navigation failed:", error);
+          logger.error(`[ImpactAnalyzerScene] Navigation to ${targetSceneId} failed:`, error);
           // Reset flag on error so user can try again
           this.isNavigating = false;
         })
         .finally(() => {
-          // Reset after a longer delay to ensure scene transition completes
+          // Reset after a delay to ensure scene transition completes
           setTimeout(() => {
             this.isNavigating = false;
           }, 2000);
@@ -203,9 +221,7 @@ export class ImpactAnalyzerScene extends BaseScene {
       label,
       onClick: handleClick
     });
-    logger.info(`[ImpactAnalyzerScene] Button binding initiated for: ${label}`);
-
-    logger.info(`[ImpactAnalyzerScene] Portal "${label}" created successfully`);
+    logger.info(`[ImpactAnalyzerScene] ${direction} button "${label}" bound successfully`);
   }
 }
 

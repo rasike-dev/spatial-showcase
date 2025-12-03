@@ -31,19 +31,15 @@ export function createBackButton(world, sceneManager, entities) {
   bindPanelButton(entity, {
     label: UI_TEXT.BACK_BUTTON_LABEL,
     onClick: async (event) => {
-      // Prevent event bubbling and default behavior
-      if (event) {
-        event.stopPropagation();
-        event.preventDefault();
-      }
+      logger.info("[BackButton] Back button clicked", { event, isNavigating });
 
       if (isNavigating) {
         logger.warn("[BackButton] Navigation already in progress, ignoring click");
-        return false;
+        return;
       }
 
       isNavigating = true;
-      logger.info("[BackButton] Back button clicked, navigating to Main Hall");
+      logger.info("[BackButton] Starting navigation to Main Hall");
 
       try {
         const module = await safeDynamicImport(
@@ -53,19 +49,19 @@ export function createBackButton(world, sceneManager, entities) {
         if (!module?.MainHallScene) {
           logger.warn('[BackButton] "MainHallScene" export not found.');
           isNavigating = false;
-          return false;
+          return;
         }
+        logger.info("[BackButton] Loading MainHallScene");
         sceneManager.loadScene(module.MainHallScene);
         // Reset after delay
         setTimeout(() => {
           isNavigating = false;
         }, 2000);
       } catch (error) {
+        logger.error("[BackButton] Error loading MainHallScene:", error);
         handleSceneLoadError("MainHallScene", error);
         isNavigating = false;
       }
-
-      return false;
     }
   });
 

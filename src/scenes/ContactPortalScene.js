@@ -131,27 +131,25 @@ export class ContactPortalScene extends BaseScene {
   }
 
   renderTeleports(teleports) {
-    // Filter out "Main Hall" teleport (back button handles going back)
-    const forwardTeleports = teleports.filter((t) => t.target !== "main_hall");
-
-    if (forwardTeleports.length === 0) {
-      logger.info("[ContactPortalScene] No forward teleports to render");
+    // Don't filter - show all teleports (Main Hall is the only one, acts as backup to back button)
+    if (teleports.length === 0) {
+      logger.info("[ContactPortalScene] No teleports to render");
       return;
     }
 
-    logger.info(`[ContactPortalScene] Rendering ${forwardTeleports.length} teleports`);
+    logger.info(`[ContactPortalScene] Rendering ${teleports.length} teleports`);
 
-    // Position teleports below panel
+    // Position teleports below panel - center if single, space if multiple
     const spacing = 1.8;
     const offsetStart =
-      forwardTeleports.length > 1 ? -((forwardTeleports.length - 1) * spacing) / 2 : 0;
+      teleports.length > 1 ? -((teleports.length - 1) * spacing) / 2 : 0;
 
-    forwardTeleports.forEach((teleport, index) => {
+    teleports.forEach((teleport, index) => {
       const xOffset = offsetStart + index * spacing;
       this.createPortal(teleport.label, xOffset, teleport.target);
     });
 
-    logger.info(`[ContactPortalScene] Created ${forwardTeleports.length} navigation portals`);
+    logger.info(`[ContactPortalScene] Created ${teleports.length} navigation portals`);
   }
 
   createPortal(label, xOffset, targetSceneId) {
