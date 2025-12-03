@@ -95,7 +95,8 @@ export class InnovationLabScene extends BaseScene {
       logger.warn("[InnovationLabScene] Impact Analyzer teleport not found in scene data");
       // Fallback: create it explicitly
       logger.info("[InnovationLabScene] Creating explicit Impact Analyzer forward navigation");
-      this.createPortal("Impact Analyzer", 0, "impact_analyzer");
+      // Position forward button to the right of back button (side by side)
+      this.createPortal("Impact Analyzer", 0.7, "impact_analyzer", 0.8);
       return;
     }
 
@@ -103,36 +104,47 @@ export class InnovationLabScene extends BaseScene {
       `[InnovationLabScene] Rendering forward teleport to Impact Analyzer: ${impactAnalyzerTeleport.label}`
     );
 
-    // Center the single forward navigation button
-    this.createPortal(impactAnalyzerTeleport.label, 0, impactAnalyzerTeleport.target);
+    // Position forward button to the right of back button (side by side)
+    // Back button is at x=-0.7 (left), forward button at x=0.7 (right)
+    // Both at y=0.8 for proper visibility
+    this.createPortal(impactAnalyzerTeleport.label, 0.7, impactAnalyzerTeleport.target, 0.8);
 
     logger.info(
       `[InnovationLabScene] Created forward navigation portal to Impact Analyzer: ${impactAnalyzerTeleport.label}`
     );
   }
 
-  createPortal(label, xOffset, targetSceneId) {
-    logger.info(`[InnovationLabScene] Creating portal: ${label} at x=${xOffset}`);
+  createPortal(label, xOffset, targetSceneId, yOffset = 0.8) {
+    logger.info(
+      `[InnovationLabScene] Creating portal: ${label} at x=${xOffset}, y=${yOffset} -> ${targetSceneId}`
+    );
 
     const entity = this.world.createTransformEntity().addComponent(PanelUI, {
       config: "/ui/portalPanel.json",
-      maxWidth: 1.2,
-      maxHeight: 0.5
+      maxWidth: 1.0, // Smaller width for better visibility
+      maxHeight: 0.4 // Smaller height for better visibility
     });
 
-    entity.object3D.position.set(xOffset, 0.8, -2.5);
+    entity.object3D.position.set(xOffset, yOffset, -2.5);
     entity.object3D.lookAt(0, 1.6, 0);
 
     this.trackEntity(entity);
 
-    // Create a unique handler for this portal
+    // Create a unique handler for this portal with improved stability
     const handleClick = (event) => {
+      // Stop event propagation immediately to prevent multiple handlers
+      if (event) {
+        event.stopPropagation();
+      }
+
       logger.info(`[InnovationLabScene] Click handler called for: ${label}`, {
         event,
         targetSceneId,
-        isNavigating: this.isNavigating
+        isNavigating: this.isNavigating,
+        timestamp: Date.now()
       });
 
+      // Early return if already navigating
       if (this.isNavigating) {
         logger.warn("[InnovationLabScene] Navigation already in progress, ignoring click");
         return;
@@ -146,25 +158,30 @@ export class InnovationLabScene extends BaseScene {
         return;
       }
 
+      // Set flag immediately to prevent multiple clicks
       this.isNavigating = true;
       logger.info(`[InnovationLabScene] Starting navigation: ${label} -> impact_analyzer`);
 
-      // Navigate to Impact Analyzer - don't prevent default, just navigate
-      this.navigateToScene("impact_analyzer")
-        .then(() => {
-          logger.info("[InnovationLabScene] Navigation to Impact Analyzer successful");
-        })
-        .catch((error) => {
-          logger.error("[InnovationLabScene] Navigation failed:", error);
-          // Reset flag on error so user can try again
-          this.isNavigating = false;
-        })
-        .finally(() => {
-          // Reset after a longer delay to ensure scene transition completes
-          setTimeout(() => {
+      // Add a small delay to ensure any previous scene transitions are complete
+      // This helps with stability when navigating quickly
+      setTimeout(() => {
+        this.navigateToScene("impact_analyzer")
+          .then(() => {
+            logger.info("[InnovationLabScene] Navigation to Impact Analyzer successful");
+          })
+          .catch((error) => {
+            logger.error("[InnovationLabScene] Navigation failed:", error);
+            // Reset flag on error so user can try again
             this.isNavigating = false;
-          }, 2000);
-        });
+          })
+          .finally(() => {
+            // Reset after a longer delay to ensure scene transition completes
+            setTimeout(() => {
+              this.isNavigating = false;
+              logger.debug("[InnovationLabScene] Navigation flag reset");
+            }, 3000); // Increased delay for better stability
+          });
+      }, 100); // Small delay to ensure scene is ready
     };
 
     // Bind immediately - don't delay

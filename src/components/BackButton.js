@@ -15,12 +15,13 @@ import { logger } from "../utils/logger.js";
 export function createBackButton(world, sceneManager, entities) {
   const entity = world.createTransformEntity().addComponent(PanelUI, {
     config: PORTAL.PANEL.configPath,
-    maxWidth: PORTAL.PANEL.maxWidth,
-    maxHeight: PORTAL.PANEL.maxHeight
+    maxWidth: 1.0, // Smaller width for better visibility
+    maxHeight: 0.4 // Smaller height for better visibility
   });
 
-  // Position back button in the middle, in front of user (same Z as panels)
-  entity.object3D.position.set(0, 0.8, -2.5);
+  // Position back button to the left, in front of user (same Z as panels)
+  // Positioned at x=-0.7 to leave room for forward button on the right
+  entity.object3D.position.set(-0.7, 0.8, -2.5);
   entity.object3D.lookAt(0, 1.6, 0);
 
   entities.push(entity);

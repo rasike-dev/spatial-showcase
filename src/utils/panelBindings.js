@@ -40,17 +40,33 @@ export function bindPanelButton(
       const buttonElement = document.getElementById?.(buttonId);
       if (buttonElement) {
         if (!buttonElement.__panelBindingAttached) {
-          // Remove any existing listeners first
+          // Remove any existing listeners first to prevent duplicates
+          const existingHandler = buttonElement.__panelBindingHandler;
+          if (existingHandler) {
+            buttonElement.removeEventListener?.("click", existingHandler);
+          }
+
+          // Create a new handler with debouncing
           const newOnClick = (event) => {
-            logger.info(`[PanelUI] Button clicked for entity ${entity.index} (${label})`, { event });
+            // Stop propagation immediately to prevent multiple handlers
+            if (event) {
+              event.stopPropagation();
+            }
+
+            logger.info(`[PanelUI] Button clicked for entity ${entity.index} (${label})`, {
+              event,
+              timestamp: Date.now()
+            });
             try {
               onClick(event);
             } catch (error) {
               logger.error(`[PanelUI] Error in click handler for entity ${entity.index}:`, error);
             }
           };
+
           buttonElement.addEventListener?.("click", newOnClick);
           buttonElement.__panelBindingAttached = true;
+          buttonElement.__panelBindingHandler = newOnClick; // Store reference for cleanup
           logger.info(`[PanelUI] Bound click for entity ${entity.index} (${label})`);
         } else {
           logger.debug(`[PanelUI] Click handler already attached for entity ${entity.index} (${label})`);

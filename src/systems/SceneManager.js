@@ -8,6 +8,7 @@ export class SceneManager {
   constructor(world) {
     this.world = world;
     this.activeScene = null;
+    this.isLoading = false; // Lock to prevent concurrent scene loads
   }
 
   /**
@@ -17,7 +18,15 @@ export class SceneManager {
    */
   loadScene(SceneClass, data = null) {
     const sceneName = SceneClass.name || "UnknownScene";
+
+    // Prevent concurrent scene loads
+    if (this.isLoading) {
+      console.warn(`[SceneManager] Scene load already in progress, ignoring request for: ${sceneName}`);
+      return;
+    }
+
     console.log(`[SceneManager] Loading scene: ${sceneName}`);
+    this.isLoading = true;
 
     // Dispose existing scene with enhanced logging
     if (this.activeScene) {
@@ -53,5 +62,11 @@ export class SceneManager {
     }
 
     console.log(`[SceneManager] Scene initialized: ${sceneName}`);
+
+    // Reset loading lock after a short delay to allow scene to fully initialize
+    setTimeout(() => {
+      this.isLoading = false;
+      console.log(`[SceneManager] Loading lock released for: ${sceneName}`);
+    }, 500);
   }
 }

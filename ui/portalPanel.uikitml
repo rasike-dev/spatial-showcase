@@ -9,6 +9,7 @@
     border-radius: 1.2;
     cursor: pointer;
     gap: 0.6;
+    pointer-events: auto;
   }
 
   .portal-title {
