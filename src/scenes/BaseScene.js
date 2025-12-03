@@ -2,6 +2,7 @@ import { CAMERA } from "../constants/sceneConstants.js";
 import { getSceneLoader } from "./sceneRegistry.js";
 import { logger } from "../utils/logger.js";
 import { safeDynamicImport, handleSceneLoadError } from "../utils/errorHandler.js";
+import { stopSlideshow } from "../utils/slideshow.js";
 
 /**
  * Base class providing common scene utilities such as camera setup and entity tracking.
@@ -43,40 +44,66 @@ export class BaseScene {
    * Destroys all tracked entities and resets the internal list.
    */
   dispose() {
-    console.log(`[BaseScene] Disposing scene with ${this.entities.length} entities`);
-    
+    logger.debug(`[BaseScene] Disposing scene with ${this.entities.length} entities`);
+
     this.entities.forEach((entity, index) => {
-      console.log(`[BaseScene] Disposing entity ${index}: ${entity.constructor.name}`);
-      
+      const entityName = entity.constructor?.name || `Entity${index}`;
+      logger.debug(`[BaseScene] Disposing entity ${index}: ${entityName}`);
+
+      // Clean up slideshows before destroying entity (if any)
+      if (entity.object3D) {
+        stopSlideshow(entity);
+      }
+
       // Remove object3D from scene - this is the primary cleanup method in IWSDK
       if (entity.object3D) {
         if (entity.object3D.parent) {
-          console.log(`[BaseScene] Removing entity ${index} from parent`);
+          logger.debug(`[BaseScene] Removing entity ${index} from parent`);
           entity.object3D.parent.remove(entity.object3D);
         }
-        
+
         // More aggressive cleanup - try to remove from world scene directly
-        if (this.world && this.world.scene && this.world.scene.remove) {
-          this.world.scene.remove(entity.object3D);
+        if (this.world?.scene?.remove) {
+          try {
+            this.world.scene.remove(entity.object3D);
+          } catch (e) {
+            // Entity might already be removed, which is fine
+            logger.debug(`[BaseScene] Could not remove entity ${index} from world scene: ${e.message}`);
+          }
         }
-        
-        // Dispose of Three.js resources if available
-        if (entity.object3D.dispose) {
-          entity.object3D.dispose();
-        }
-        
-        // Clear the object3D reference
-        entity.object3D = null;
+
+        // Dispose of Three.js resources (geometries and materials)
+        entity.object3D.traverse((object) => {
+          if (object.isMesh) {
+            if (object.geometry) {
+              object.geometry.dispose();
+            }
+            if (object.material) {
+              if (Array.isArray(object.material)) {
+                object.material.forEach((material) => material.dispose());
+              } else {
+                object.material.dispose();
+              }
+            }
+          }
+        });
+
+        // Note: We don't set object3D to null here as it might be accessed
+        // during the disposal process. Let garbage collection handle it.
       }
-      
+
       // Try to destroy the entity itself if it has a destroy method
-      if (entity.destroy) {
-        entity.destroy();
+      if (typeof entity.destroy === "function") {
+        try {
+          entity.destroy();
+        } catch (e) {
+          logger.warn(`[BaseScene] Error destroying entity ${index}: ${e.message}`);
+        }
       }
     });
-    
+
     this.entities = [];
-    console.log(`[BaseScene] Scene disposal complete`);
+    logger.debug("[BaseScene] Scene disposal complete");
   }
 
   /**

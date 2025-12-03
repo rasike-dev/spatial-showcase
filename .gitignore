@@ -63,3 +63,6 @@ public/ui/
 # Documentation (only README.md tracked)
 *.md
 !README.md
+
+# Video files (temporary/working files)
+*.mp4

@@ -19,12 +19,9 @@ export function createBackButton(world, sceneManager, entities) {
     maxHeight: PORTAL.PANEL.maxHeight
   });
 
-  entity.object3D.position.set(0, PORTAL.DEFAULT_Y_POSITION, PORTAL.BACK_BUTTON_Z);
-  entity.object3D.lookAt(
-    CAMERA.DEFAULT_POSITION.x,
-    CAMERA.DEFAULT_POSITION.y,
-    CAMERA.DEFAULT_POSITION.z
-  );
+  // Position back button in the middle, in front of user (same Z as panels)
+  entity.object3D.position.set(0, 0.8, -2.5);
+  entity.object3D.lookAt(0, 1.6, 0);
 
   entities.push(entity);
   bindPanelButton(entity, {

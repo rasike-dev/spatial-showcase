@@ -4,8 +4,8 @@ import { startSpatialShowcase } from "./app/startSpatialShowcase.js";
 import { logger } from "./utils/logger.js";
 
 // Global error handling for debugging
-window.addEventListener('error', (event) => {
-  logger.error('[GlobalError]', {
+window.addEventListener("error", (event) => {
+  logger.error("[GlobalError]", {
     message: event.message,
     filename: event.filename,
     lineno: event.lineno,
@@ -17,8 +17,8 @@ window.addEventListener('error', (event) => {
 });
 
 // Handle unhandled promise rejections
-window.addEventListener('unhandledrejection', (event) => {
-  logger.error('[UnhandledRejection]', event.reason);
+window.addEventListener("unhandledrejection", (event) => {
+  logger.error("[UnhandledRejection]", event.reason);
 });
 
 const assets = {}; // no demo assets now

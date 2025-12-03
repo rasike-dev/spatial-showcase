@@ -29,6 +29,7 @@ export class ContactPortalScene extends BaseScene {
     logger.info("ContactPortalScene: Rendering contact panel...");
     createBackButton(this.world, this.sceneManager, this.entities);
     this.renderPanels(this.sceneData.panels || []);
+    this.renderTeleports(this.sceneData.teleports || []);
 
     logger.info(`ContactPortalScene: Created ${this.entities.length} entities`);
   }
@@ -64,6 +65,36 @@ export class ContactPortalScene extends BaseScene {
           }
         });
       }
+    });
+  }
+
+  renderTeleports(teleports) {
+    teleports.forEach((teleport, index) => {
+      this.createPortal(teleport.label, 0, teleport.target);
+    });
+    logger.info(`[ContactPortalScene] Created ${teleports.length} navigation portals`);
+  }
+
+  createPortal(label, xOffset, targetSceneId) {
+    logger.debug(`Creating portal: ${label} at x=${xOffset}`);
+
+    const entity = this.world.createTransformEntity().addComponent(PanelUI, {
+      config: "/ui/portalPanel.json",
+      maxWidth: 1.1,
+      maxHeight: 0.45
+    });
+
+    entity.object3D.position.set(xOffset, 1.4, 2);
+    entity.object3D.lookAt(
+      CAMERA.DEFAULT_POSITION.x,
+      CAMERA.DEFAULT_POSITION.y,
+      CAMERA.DEFAULT_POSITION.z
+    );
+
+    this.trackEntity(entity);
+    bindPanelButton(entity, {
+      label,
+      onClick: () => this.navigateToScene(targetSceneId)
     });
   }
 }
