@@ -1,0 +1,53 @@
+<style>
+  .contact-panel {
+    align-items: center;
+    padding: 2.4;
+    width: 20;
+    display: flex;
+    flex-direction: column;
+    background-color: #1a1a1a;
+    border-radius: 1.2;
+    gap: 1.6;
+  }
+
+  .contact-title {
+    font-size: 3.2;
+    color: #ffffff;
+    text-align: center;
+    font-weight: bold;
+  }
+
+  .contact-description {
+    font-size: 2.0;
+    color: #cccccc;
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  .contact-button {
+    align-items: center;
+    padding: 1.2;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    background-color: #4a9eff;
+    border-radius: 0.8;
+    cursor: pointer;
+    margin-top: 0.8;
+  }
+
+  .contact-button-text {
+    font-size: 2.4;
+    color: #ffffff;
+    text-align: center;
+    font-weight: bold;
+  }
+</style>
+<div class="contact-panel">
+  <span class="contact-title" id="panel-title">Work Together</span>
+  <span class="contact-description" id="panel-description">Visit rasike.me</span>
+  <div id="contact-button" class="contact-button">
+    <span class="contact-button-text" id="contact-button-text">Visit Website</span>
+  </div>
+</div>
+
