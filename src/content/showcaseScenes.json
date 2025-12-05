@@ -66,13 +66,15 @@
         "id": "mt",
         "title": "Microservice Ecosystem",
         "description": "Enterprise-grade architecture enabling millions of requests per minute.",
-        "image": "/assets/images/collection_03.jpg"
+        "image": "/assets/images/collection_03.jpg",
+        "video": "/assets/images/collection_03.mp4"
       },
       {
         "id": "trade",
         "title": "Trading Platform",
         "description": "Real-time dashboards for global equity, FX, and crypto markets.",
-        "image": "/assets/images/trading_dashboard.png"
+        "image": "/assets/images/trading_dashboard.png",
+        "video": "/assets/images/trading_dashboard.mp4"
       },
       {
         "id": "aitools",

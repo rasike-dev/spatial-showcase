@@ -10,6 +10,16 @@ dist/
 .env
 .env.local
 .env.production
+.env.*
+!.env.example
+
+# Server uploads
+server/uploads/
+server/.env
+
+# Admin panel
+admin-panel/dist/
+admin-panel/.env
 
 # IDE files
 .vscode/
@@ -60,9 +70,20 @@ public/gltf/generated/
 public/glxf/
 public/ui/
 
-# Documentation (only README.md tracked)
+# Documentation (track important docs)
 *.md
 !README.md
+!REPOSITORY_STRUCTURE.md
+!TESTING_GUIDE.md
+!PHASE1_SETUP.md
+!PHASE1_PROGRESS.md
+!ADMIN_PANEL_SETUP.md
+!ADMIN_PANEL_TECH_STACK.md
+!BACKEND_TECH_STACK.md
+!DATABASE_SETUP.md
+!META_STORE_REQUIREMENTS.md
+!VALUE_PROPOSITION.md
+!USER_VALUE_FEATURES.md
 
 # Video files (temporary/working files)
 *.mp4

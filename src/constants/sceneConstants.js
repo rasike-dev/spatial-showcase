@@ -114,5 +114,5 @@ export const LIGHTING = {
  * UI text constants
  */
 export const UI_TEXT = {
-  BACK_BUTTON_LABEL: "← Back to Main Hall"
+  BACK_BUTTON_LABEL: "Back to Main Hall"
 };
