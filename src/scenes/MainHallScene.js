@@ -5,6 +5,7 @@ import { CAMERA, PORTAL } from "../constants/sceneConstants.js";
 import { logger } from "../utils/logger.js";
 import { BaseScene } from "./BaseScene.js";
 import { getShowcaseScene } from "../content/showcaseContent.js";
+import { getTemplateLayout, calculatePanelPositions, applyTemplateColors } from "../utils/templateRenderer.js";
 
 /**
  * Main hall scene that acts as the navigation hub for all other scenes.
@@ -16,68 +17,118 @@ export class MainHallScene extends BaseScene {
 
   /**
    * Lifecycle hook invoked by the scene manager to set up entities.
+   * @param {Object} options - Optional scene data
+   * @param {Object} options.portfolioData - Portfolio data from API
    */
-  init() {
+  init(options = {}) {
     // Set camera position on entering scene
     this.setupCamera();
 
-    this.sceneData = getShowcaseScene("main_hall");
-    if (!this.sceneData) {
-      logger.error("[MainHallScene] Missing scene data for main_hall");
-      return;
+    // Check if we have portfolio data from API
+    const portfolioData = options?.portfolioData || this.world.portfolioData;
+
+    if (portfolioData && portfolioData.panels) {
+      // Use portfolio data from API
+      logger.info("[MainHallScene] Using portfolio data from API:", portfolioData);
+      const panels = portfolioData.panels || [];
+      
+      // Apply template colors if available
+      if (portfolioData.colors) {
+        this.applyTemplateColors(portfolioData.colors);
+      }
+
+      // Render panels with template-specific layout
+      const templateId = portfolioData.template || 'creative-portfolio';
+      this.renderPanels(panels, templateId);
+      
+      // Use default teleports for now (can be customized per template later)
+      const defaultSceneData = getShowcaseScene("main_hall");
+      const teleports = defaultSceneData?.teleports || [];
+      this.renderTeleports(teleports);
+    } else {
+      // Fallback to default content
+      this.sceneData = getShowcaseScene("main_hall");
+      if (!this.sceneData) {
+        logger.error("[MainHallScene] Missing scene data for main_hall");
+        return;
+      }
+
+      logger.info("[MainHallScene] Using default scene data:", this.sceneData);
+      const panels = this.sceneData.panels || [];
+      const teleports = this.sceneData.teleports || [];
+
+      this.renderPanels(panels);
+      this.renderTeleports(teleports);
     }
-
-    logger.info("[MainHallScene] Scene data loaded:", this.sceneData);
-    logger.info("MainHallScene: Rendering panels and teleports from content...");
-
-    const panels = this.sceneData.panels || [];
-    const teleports = this.sceneData.teleports || [];
-
-    logger.info(`[MainHallScene] About to render ${panels.length} panels and ${teleports.length} teleports`);
-
-    this.renderPanels(panels);
-    this.renderTeleports(teleports);
 
     logger.info(`[MainHallScene] Created ${this.entities.length} entities`);
   }
 
-  renderPanels(panels) {
-    logger.info(`[MainHallScene] Starting to render ${panels.length} panels`);
+  /**
+   * Apply template colors to the scene
+   */
+  applyTemplateColors(colors) {
+    this.templateColors = colors;
+    logger.info("[MainHallScene] Template colors stored:", colors);
+    
+    // Apply colors to all panel entities
+    this.entities.forEach(entity => {
+      if (entity.hasComponent && entity.hasComponent(PanelUI)) {
+        applyTemplateColors(colors, entity);
+      }
+    });
+  }
+
+  renderPanels(panels, templateId = 'creative-portfolio') {
+    logger.info(`[MainHallScene] Starting to render ${panels.length} panels with template: ${templateId}`);
+
+    // Get template-specific layout
+    const layout = getTemplateLayout(templateId);
+    const positions = calculatePanelPositions(panels, layout);
 
     panels.forEach((panel, index) => {
       logger.info(`[MainHallScene] Rendering panel ${index}: ${panel.title}`);
 
       const entity = this.world.createTransformEntity().addComponent(PanelUI, {
         config: "/ui/projectPanel.json",
-        maxWidth: 2.0,
-        maxHeight: 2.5
+        maxWidth: layout.panelMaxWidth,
+        maxHeight: layout.panelMaxHeight
       });
 
-      // Position panels side by side in front of user
-      const spacing = 2.2;
-      const offsetStart = panels.length > 1 ? -((panels.length - 1) * spacing) / 2 : 0;
-      const xOffset = offsetStart + index * spacing;
-
-      entity.object3D.position.set(xOffset, 1.6, -3.0);
+      // Use template-based positioning
+      const position = positions[index] || { x: 0, y: 1.6, z: -3.0 };
+      entity.object3D.position.set(position.x, position.y, position.z);
       entity.object3D.lookAt(0, 1.6, 0);
 
       this.trackEntity(entity);
 
+      // Apply template colors if available
+      if (this.templateColors) {
+        applyTemplateColors(this.templateColors, entity);
+      }
+
       // Delay content binding to ensure PanelUI is fully initialized
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          // Bind panel content with static images
+          // Get portfolio ID from world data for analytics
+          const portfolioId = this.world.portfolioData?.portfolio?.id || null;
+          
+          // Bind panel content - supports both API data and static data
           bindPanelContent(entity, {
             title: panel.title,
             description: panel.description,
-            image: panel.image
+            image: panel.image,
+            video: panel.video, // Support video from API
+            media: panel.media, // Support multiple media items
+            panelId: panel.id, // For analytics
+            portfolioId: portfolioId, // For analytics
           });
         });
       });
 
-      logger.info(`[MainHallScene] Panel ${index} created at position (${xOffset}, 1.6, -3.0)`);
+      logger.info(`[MainHallScene] Panel ${index} created at position (${position.x}, ${position.y}, ${position.z})`);
     });
-    logger.info(`[MainHallScene] Created ${panels.length} welcome panels`);
+    logger.info(`[MainHallScene] Created ${panels.length} panels with ${templateId} template`);
   }
 
   renderTeleports(teleports) {

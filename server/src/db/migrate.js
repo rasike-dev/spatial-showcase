@@ -17,6 +17,15 @@ async function migrate() {
     // Execute schema
     await pool.query(schema);
 
+    // Read and execute templates file
+    const templatesPath = join(__dirname, 'templates.sql');
+    if (fs.existsSync(templatesPath)) {
+      console.log('🔄 Running templates migration...');
+      const templates = fs.readFileSync(templatesPath, 'utf8');
+      await pool.query(templates);
+      console.log('✅ Templates migration completed');
+    }
+
     console.log('✅ Database migration completed successfully');
     process.exit(0);
   } catch (error) {

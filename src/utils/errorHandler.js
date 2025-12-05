@@ -1,47 +1,96 @@
-import { logger } from "./logger.js";
+import { logger } from './logger.js';
 
 /**
- * Wraps an async operation with standardized error handling.
- * @template T
- * @param {() => Promise<T>} operation - async operation to execute
- * @param {{ errorMessage?: string, onError?: (error: Error) => void }} options
- * @returns {Promise<T>}
+ * Enhanced error handling for VR app
  */
-export async function safeAsync(operation, { errorMessage, onError } = {}) {
-  try {
-    return await operation();
-  } catch (error) {
-    if (errorMessage) {
-      logger.error(errorMessage, error);
-    } else {
-      logger.error("[safeAsync] Unhandled error", error);
+
+/**
+ * Display error message to user in VR
+ */
+export function showError(message, details = null) {
+  logger.error('[ErrorHandler]', message, details);
+  
+  // Create error overlay in VR
+  const errorOverlay = document.createElement('div');
+  errorOverlay.id = 'vr-error-overlay';
+  errorOverlay.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 10000;
+    max-width: 400px;
+    text-align: center;
+    font-family: Arial, sans-serif;
+  `;
+  
+  errorOverlay.innerHTML = `
+    <h3 style="margin: 0 0 10px 0; color: #ff4444;">Error</h3>
+    <p style="margin: 0 0 10px 0;">${message}</p>
+    ${details ? `<p style="margin: 0; font-size: 12px; color: #aaa;">${details}</p>` : ''}
+    <button 
+      onclick="document.getElementById('vr-error-overlay').remove()"
+      style="margin-top: 15px; padding: 8px 16px; background: #6366f1; color: white; border: none; border-radius: 5px; cursor: pointer;"
+    >
+      Close
+    </button>
+  `;
+  
+  document.body.appendChild(errorOverlay);
+  
+  // Auto-remove after 10 seconds
+  setTimeout(() => {
+    if (errorOverlay.parentNode) {
+      errorOverlay.remove();
     }
-    if (onError) {
-      onError(error);
-    }
-    throw error;
+  }, 10000);
+}
+
+/**
+ * Handle API errors gracefully
+ */
+export function handleApiError(error, context = '') {
+  let message = 'An error occurred';
+  let details = null;
+
+  if (error.message) {
+    message = error.message;
   }
-}
 
-/**
- * Convenience helper for wrapping dynamic imports.
- * @template T
- * @param {() => Promise<T>} loader - dynamic import function
- * @param {string} description - description used in logs
- * @returns {Promise<T>}
- */
-export function safeDynamicImport(loader, description) {
-  return safeAsync(loader, {
-    errorMessage: `[DynamicImport] Failed to load ${description}`
-  });
-}
+  if (error.response) {
+    // API error response
+    const status = error.response.status;
+    const data = error.response.data;
 
-/**
- * Logs a standardized error when a scene fails to load.
- * @param {string} sceneName
- * @param {Error} error
- */
-export function handleSceneLoadError(sceneName, error) {
-  logger.error(`[SceneManager] Failed to load scene "${sceneName}"`, error);
-}
+    switch (status) {
+      case 404:
+        message = 'Portfolio not found';
+        details = 'The portfolio you\'re looking for doesn\'t exist or has been removed.';
+        break;
+      case 403:
+        message = 'Access denied';
+        details = 'You don\'t have permission to view this portfolio.';
+        break;
+      case 500:
+        message = 'Server error';
+        details = 'The server encountered an error. Please try again later.';
+        break;
+      default:
+        message = data?.error || `Error ${status}`;
+        details = context ? `Error in ${context}` : null;
+    }
+  } else if (error.request) {
+    // Network error
+    message = 'Network error';
+    details = 'Unable to connect to the server. Please check your connection.';
+  }
 
+  logger.error('[ErrorHandler] API Error:', { message, details, error });
+  showError(message, details);
+  
+  return { message, details };
+}

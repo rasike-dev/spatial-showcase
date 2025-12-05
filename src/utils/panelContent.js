@@ -1,5 +1,6 @@
 import { PanelDocument } from "@iwsdk/core";
 import { logger } from "./logger.js";
+import { trackPanelView, trackMediaInteraction } from "./analytics.js";
 
 /**
  * Binds content (title, description, image/video) to a panel entity.
@@ -62,6 +63,11 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
             titleElement.innerText = content.title;
           }
           logger.debug(`[PanelContent] Set title: ${content.title}`);
+          
+          // Track panel view when title is set (panel is visible)
+          if (content.panelId && content.portfolioId) {
+            trackPanelView(content.portfolioId, content.panelId, content.title);
+          }
         } else {
           logger.warn(`[PanelContent] Title element not found for entity ${entity.index}`);
         }
@@ -642,6 +648,13 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
               event.stopPropagation();
             }
             logger.info(`[PanelContent] Image clicked, showing video popup: ${content.video}`);
+            
+            // Track media interaction
+            if (window.portfolioId && content.video) {
+              const mediaId = content.media?.find(m => m.url === content.video)?.id || 'unknown';
+              trackMediaInteraction(window.portfolioId, mediaId, 'video', 'play');
+            }
+            
             content.onImageClick();
           };
 

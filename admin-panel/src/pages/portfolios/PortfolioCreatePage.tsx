@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Toast } from '@/components/ui/toast';
+import { TemplateSelector } from '@/components/templates/TemplateSelector';
 
 const portfolioSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -29,6 +30,8 @@ export default function PortfolioCreatePage() {
     register,
     handleSubmit,
     formState: { errors },
+    watch,
+    setValue,
   } = useForm<PortfolioFormData>({
     resolver: zodResolver(portfolioSchema),
     defaultValues: {
@@ -122,18 +125,14 @@ export default function PortfolioCreatePage() {
             </div>
 
             <div>
-              <label htmlFor="template_id" className="block text-sm font-medium mb-1">
-                Template
-              </label>
-              <select
-                id="template_id"
-                {...register('template_id')}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="creative-portfolio">Creative Portfolio</option>
-                <option value="tech-showcase">Tech Showcase</option>
-                <option value="photography-gallery">Photography Gallery</option>
-              </select>
+              <TemplateSelector
+                selectedTemplateId={watch('template_id')}
+                onSelect={(templateId) => setValue('template_id', templateId)}
+                disabled={mutation.isPending}
+              />
+              {errors.template_id && (
+                <p className="text-red-500 text-sm mt-1">{errors.template_id.message}</p>
+              )}
             </div>
 
             <div className="flex gap-4">

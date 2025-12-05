@@ -1,5 +1,6 @@
 import express from 'express';
 import { query } from '../db/connection.js';
+import { authenticateToken } from '../middleware/auth.js';
 import QRCode from 'qrcode';
 import crypto from 'crypto';
 
@@ -40,10 +41,24 @@ router.get('/:token', async (req, res, next) => {
 });
 
 // Generate share link (creates a share_links entry)
-router.post('/:portfolioId/generate', async (req, res, next) => {
+router.post('/:portfolioId/generate', authenticateToken, async (req, res, next) => {
   try {
     const { portfolioId } = req.params;
     const { expires_in_days, password } = req.body;
+
+    // Verify portfolio ownership
+    const portfolioCheck = await query(
+      'SELECT user_id FROM portfolios WHERE id = $1',
+      [portfolioId]
+    );
+
+    if (portfolioCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Portfolio not found' });
+    }
+
+    if (portfolioCheck.rows[0].user_id !== req.user.userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     // Generate token
     const token = crypto.randomBytes(32).toString('hex');
@@ -60,7 +75,24 @@ router.post('/:portfolioId/generate', async (req, res, next) => {
       [portfolioId, token, expiresAt]
     );
 
-    const shareUrl = `${process.env.VR_APP_URL || 'http://localhost:8081'}/view/${token}`;
+    // Get or create share token for portfolio
+    let shareToken = token;
+    const portfolioResult = await query(
+      'SELECT share_token FROM portfolios WHERE id = $1',
+      [portfolioId]
+    );
+
+    if (!portfolioResult.rows[0].share_token) {
+      // Update portfolio with share token
+      await query(
+        'UPDATE portfolios SET share_token = $1 WHERE id = $2',
+        [token, portfolioId]
+      );
+    } else {
+      shareToken = portfolioResult.rows[0].share_token;
+    }
+
+    const shareUrl = `${process.env.VR_APP_URL || 'http://localhost:8081'}/view/${shareToken}`;
 
     // Generate QR code
     const qrCodeDataUrl = await QRCode.toDataURL(shareUrl, {
@@ -70,7 +102,7 @@ router.post('/:portfolioId/generate', async (req, res, next) => {
 
     res.json({
       shareUrl,
-      token,
+      token: shareToken,
       qrCode: qrCodeDataUrl,
       expiresAt
     });

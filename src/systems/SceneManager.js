@@ -53,12 +53,17 @@ export class SceneManager {
   _createNewScene(SceneClass, data, sceneName) {
     console.log(`[SceneManager] Creating new scene: ${sceneName}`);
 
-    // Create new scene
-    this.activeScene = new SceneClass(this.world, this, data);
+    // End previous session if switching scenes
+    if (this.activeScene && window.portfolioId) {
+      endSession(window.portfolioId);
+    }
 
-    // Initialize scene
+    // Create new scene
+    this.activeScene = new SceneClass(this.world, this);
+
+    // Initialize scene with data
     if (this.activeScene.init) {
-      this.activeScene.init();
+      this.activeScene.init(data || {});
     }
 
     console.log(`[SceneManager] Scene initialized: ${sceneName}`);

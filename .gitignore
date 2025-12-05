@@ -70,20 +70,11 @@ public/gltf/generated/
 public/glxf/
 public/ui/
 
-# Documentation (track important docs)
+# Documentation (only track README.md)
 *.md
 !README.md
-!REPOSITORY_STRUCTURE.md
-!TESTING_GUIDE.md
-!PHASE1_SETUP.md
-!PHASE1_PROGRESS.md
-!ADMIN_PANEL_SETUP.md
-!ADMIN_PANEL_TECH_STACK.md
-!BACKEND_TECH_STACK.md
-!DATABASE_SETUP.md
-!META_STORE_REQUIREMENTS.md
-!VALUE_PROPOSITION.md
-!USER_VALUE_FEATURES.md
+# Allow README files in subdirectories
+!**/README.md
 
 # Video files (temporary/working files)
 *.mp4

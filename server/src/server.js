@@ -69,6 +69,7 @@ import projectRoutes from './routes/projects.js';
 import mediaRoutes from './routes/media.js';
 import analyticsRoutes from './routes/analytics.js';
 import shareRoutes from './routes/share.js';
+import templateRoutes from './routes/templates.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/portfolios', portfolioRoutes);
@@ -76,6 +77,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/share', shareRoutes);
+app.use('/api/templates', templateRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

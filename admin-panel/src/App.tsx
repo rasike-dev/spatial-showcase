@@ -8,6 +8,10 @@ import DashboardPage from './pages/dashboard/DashboardPage';
 import PortfoliosPage from './pages/portfolios/PortfoliosPage';
 import PortfolioCreatePage from './pages/portfolios/PortfolioCreatePage';
 import PortfolioEditPage from './pages/portfolios/PortfolioEditPage';
+import ProjectsPage from './pages/projects/ProjectsPage';
+import ProjectCreatePage from './pages/projects/ProjectCreatePage';
+import ProjectEditPage from './pages/projects/ProjectEditPage';
+import MediaPage from './pages/media/MediaPage';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -47,6 +51,11 @@ function App() {
             <Route path="portfolios" element={<PortfoliosPage />} />
             <Route path="portfolios/new" element={<PortfolioCreatePage />} />
             <Route path="portfolios/:id/edit" element={<PortfolioEditPage />} />
+            <Route path="portfolios/:portfolioId/projects" element={<ProjectsPage />} />
+            <Route path="portfolios/:portfolioId/projects/new" element={<ProjectCreatePage />} />
+            <Route path="portfolios/:portfolioId/projects/:id/edit" element={<ProjectEditPage />} />
+            <Route path="projects/:projectId/media" element={<MediaPage />} />
+            <Route path="portfolios/:portfolioId/media" element={<MediaPage />} />
           </Route>
 
           {/* Catch all */}
