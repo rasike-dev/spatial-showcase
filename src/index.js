@@ -3,6 +3,10 @@ import { SessionMode, World } from "@iwsdk/core";
 import { startSpatialShowcase } from "./app/startSpatialShowcase.js";
 import { logger } from "./utils/logger.js";
 
+// Immediate console log to verify script is loading
+console.log('[VR App] Script loaded, URL:', window.location.href);
+console.log('[VR App] Query params:', window.location.search);
+
 // Global error handling for debugging
 window.addEventListener("error", (event) => {
   logger.error("[GlobalError]", {

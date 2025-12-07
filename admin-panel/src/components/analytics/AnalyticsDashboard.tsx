@@ -112,8 +112,8 @@ export function AnalyticsDashboard({ portfolioId }: AnalyticsDashboardProps) {
           <CardContent>
             <div className="space-y-2">
               {analytics.viewsOverTime.map((item, index) => {
-                const maxViews = Math.max(...analytics.viewsOverTime.map(v => parseInt(v.views)));
-                const percentage = maxViews > 0 ? (parseInt(item.views) / maxViews) * 100 : 0;
+                const maxViews = Math.max(...analytics.viewsOverTime.map(v => v.views));
+                const percentage = maxViews > 0 ? (item.views / maxViews) * 100 : 0;
                 
                 return (
                   <div key={index} className="flex items-center gap-4">
@@ -148,8 +148,8 @@ export function AnalyticsDashboard({ portfolioId }: AnalyticsDashboardProps) {
           <CardContent>
             <div className="space-y-3">
               {analytics.deviceBreakdown.map((device, index) => {
-                const total = analytics.deviceBreakdown.reduce((sum, d) => sum + parseInt(d.count), 0);
-                const percentage = total > 0 ? (parseInt(device.count) / total) * 100 : 0;
+                const total = analytics.deviceBreakdown.reduce((sum, d) => sum + d.count, 0);
+                const percentage = total > 0 ? (device.count / total) * 100 : 0;
                 
                 return (
                   <div key={index} className="flex items-center justify-between">

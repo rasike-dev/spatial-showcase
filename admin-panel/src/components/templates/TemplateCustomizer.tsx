@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { templatesApi } from '@/api/templates';
-import type { Template } from '@/api/templates';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

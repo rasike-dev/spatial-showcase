@@ -15,8 +15,20 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security middleware
-app.use(helmet());
+// Security middleware - configure Helmet to allow cross-origin requests for media
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false, // Allow embedding media from different origins
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "blob:", "http://localhost:*", "http://127.0.0.1:*"],
+      mediaSrc: ["'self'", "blob:", "http://localhost:*", "http://127.0.0.1:*"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+    },
+  },
+}));
 
 // CORS configuration
 const corsOptions = {
@@ -42,12 +54,33 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Rate limiting
+// Rate limiting - general API routes
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
-app.use('/api/', limiter);
+
+// More lenient rate limiter for share link generation (users may open/close dialog multiple times)
+const shareLinkLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // Higher limit for share link generation
+  message: 'Too many share link generation requests, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply general rate limiter to all API routes except share link generation
+app.use('/api/', (req, res, next) => {
+  // Skip rate limiting for share link generation endpoint
+  if (req.path.includes('/share/') && req.method === 'POST' && req.path.includes('/generate')) {
+    return shareLinkLimiter(req, res, next);
+  }
+  // Apply general limiter to all other routes
+  return limiter(req, res, next);
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

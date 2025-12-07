@@ -13,6 +13,7 @@ import { getTemplateLayout, calculatePanelPositions, applyTemplateColors } from 
 export class MainHallScene extends BaseScene {
   constructor(world, sceneManager) {
     super(world, sceneManager);
+    this.portfolioData = null; // Store portfolio data for use in renderPanels
   }
 
   /**
@@ -25,20 +26,20 @@ export class MainHallScene extends BaseScene {
     this.setupCamera();
 
     // Check if we have portfolio data from API
-    const portfolioData = options?.portfolioData || this.world.portfolioData;
+    this.portfolioData = options?.portfolioData || this.world.portfolioData;
 
-    if (portfolioData && portfolioData.panels) {
+    if (this.portfolioData && this.portfolioData.panels) {
       // Use portfolio data from API
-      logger.info("[MainHallScene] Using portfolio data from API:", portfolioData);
-      const panels = portfolioData.panels || [];
+      logger.info("[MainHallScene] Using portfolio data from API:", this.portfolioData);
+      const panels = this.portfolioData.panels || [];
       
       // Apply template colors if available
-      if (portfolioData.colors) {
-        this.applyTemplateColors(portfolioData.colors);
+      if (this.portfolioData.colors) {
+        this.applyTemplateColors(this.portfolioData.colors);
       }
 
       // Render panels with template-specific layout
-      const templateId = portfolioData.template || 'creative-portfolio';
+      const templateId = this.portfolioData.template || 'creative-portfolio';
       this.renderPanels(panels, templateId);
       
       // Use default teleports for now (can be customized per template later)
@@ -113,6 +114,22 @@ export class MainHallScene extends BaseScene {
           // Get portfolio ID from world data for analytics
           const portfolioId = this.world.portfolioData?.portfolio?.id || null;
           
+          // Get full project data from portfolioData
+          // First try to get from projects array, then fallback to panel data
+          let projectData = null;
+          if (this.portfolioData?.projects) {
+            projectData = this.portfolioData.projects.find(p => p.id === panel.id);
+          }
+          // If not found, create project data from panel
+          if (!projectData) {
+            projectData = {
+              id: panel.id,
+              title: panel.title,
+              description: panel.description,
+              media: panel.media || [],
+            };
+          }
+          
           // Bind panel content - supports both API data and static data
           bindPanelContent(entity, {
             title: panel.title,
@@ -122,6 +139,10 @@ export class MainHallScene extends BaseScene {
             media: panel.media, // Support multiple media items
             panelId: panel.id, // For analytics
             portfolioId: portfolioId, // For analytics
+            onClick: () => {
+              // Navigate to project detail scene when panel is clicked
+              this.navigateToProjectDetail(projectData);
+            }
           });
         });
       });
@@ -174,10 +195,44 @@ export class MainHallScene extends BaseScene {
       label,
       onClick: () => {
         logger.info(`[MainHallScene] Portal clicked: ${label} -> ${targetSceneName}`);
-        this.navigateToScene(targetSceneName);
+        // Pass portfolio data when navigating
+        this.navigateToScene(targetSceneName, {
+          portfolioData: this.portfolioData || this.world.portfolioData
+        });
       }
     });
 
     logger.info(`[MainHallScene] Portal "${label}" created successfully`);
+  }
+
+  /**
+   * Navigate to project detail scene
+   * @param {Object} projectData - Project data with media
+   */
+  navigateToProjectDetail(projectData) {
+    if (!projectData) {
+      logger.warn("[MainHallScene] No project data provided for navigation");
+      return;
+    }
+
+    logger.info(`[MainHallScene] Navigating to project detail: ${projectData.title}`);
+
+    // Store current project in world for detail scene
+    this.world.currentProject = projectData;
+
+    // Import and load ProjectDetailScene
+    import("./ProjectDetailScene.js").then((module) => {
+      const ProjectDetailScene = module.ProjectDetailScene;
+      if (ProjectDetailScene) {
+        this.sceneManager.loadScene(ProjectDetailScene, {
+          project: projectData,
+          portfolioData: this.world.portfolioData
+        });
+      } else {
+        logger.error("[MainHallScene] ProjectDetailScene class not found");
+      }
+    }).catch((error) => {
+      logger.error("[MainHallScene] Failed to load ProjectDetailScene:", error);
+    });
   }
 }

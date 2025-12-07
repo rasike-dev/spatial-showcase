@@ -109,9 +109,10 @@ export class BaseScene {
   /**
    * Loads another scene by ID using the shared scene registry.
    * @param {string} targetSceneId
+   * @param {Object} data - Optional data to pass to the scene
    * @returns {Promise<void>}
    */
-  async navigateToScene(targetSceneId) {
+  async navigateToScene(targetSceneId, data = null) {
     if (!targetSceneId) {
       logger.error("[SceneNavigation] No target scene ID provided");
       return;
@@ -123,14 +124,15 @@ export class BaseScene {
       return;
     }
 
-    logger.info(`[SceneNavigation] Transition -> ${targetSceneId}`);
+    logger.info(`[SceneNavigation] Transition -> ${targetSceneId}`, data ? "with data" : "");
     try {
       const SceneClass = await safeDynamicImport(loader, `scene "${targetSceneId}"`);
       if (!SceneClass) {
         logger.warn(`[SceneNavigation] Loader for "${targetSceneId}" returned empty module`);
         return;
       }
-      this.sceneManager.loadScene(SceneClass);
+      // Pass data to scene manager, which will pass it to scene.init()
+      this.sceneManager.loadScene(SceneClass, data);
     } catch (error) {
       handleSceneLoadError(targetSceneId, error);
       throw error; // Re-throw so caller can handle it

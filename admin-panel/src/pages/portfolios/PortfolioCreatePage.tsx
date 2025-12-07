@@ -15,7 +15,7 @@ import { TemplateSelector } from '@/components/templates/TemplateSelector';
 const portfolioSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  template_id: z.string().default('creative-portfolio'),
+  template_id: z.string().min(1, 'Template is required'),
 });
 
 type PortfolioFormData = z.infer<typeof portfolioSchema>;
@@ -24,7 +24,7 @@ export default function PortfolioCreatePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const navigateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     register,

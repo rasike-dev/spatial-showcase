@@ -23,13 +23,44 @@ export async function getPortfolio(idOrToken, useCache = true) {
     }
   }
 
+  const url = `${API_BASE_URL}/share/${idOrToken}`;
+  logger.info('[API] Fetching portfolio from:', url);
+
   try {
-    const response = await fetch(`${API_BASE_URL}/share/${idOrToken}`);
+    console.log('[API] Making request to:', url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      // Add credentials for CORS if needed
+      credentials: 'omit',
+    });
+
+    console.log('[API] Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries()),
+    });
+    logger.info('[API] Response status:', response.status, response.statusText);
+
     if (!response.ok) {
-      throw new Error(`Failed to fetch portfolio: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('[API] Error response body:', errorText);
+      logger.error('[API] Error response:', errorText);
+      throw new Error(`Failed to fetch portfolio: ${response.status} ${response.statusText} - ${errorText}`);
     }
+
     const data = await response.json();
+    console.log('[API] Portfolio data received:', data);
+    logger.info('[API] Portfolio data received:', data);
+    
     const portfolio = data.portfolio;
+    
+    if (!portfolio) {
+      throw new Error('Portfolio data not found in response');
+    }
     
     // Cache the result
     if (useCache && portfolio) {
@@ -39,6 +70,11 @@ export async function getPortfolio(idOrToken, useCache = true) {
     return portfolio;
   } catch (error) {
     logger.error('[API] Error fetching portfolio:', error);
+    logger.error('[API] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      url: url,
+    });
     handleApiError(error, 'fetching portfolio');
     throw error;
   }

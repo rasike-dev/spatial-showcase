@@ -21,7 +21,16 @@ export default defineConfig({
       level: 'medium'
     }),
   ],
-  server: { host: '0.0.0.0', port: 8081, open: true },
+  server: { 
+    host: '0.0.0.0', 
+    port: 8081, 
+    open: true,
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 8081,
+    open: true,
+  },
   build: {
     outDir: 'dist',
     sourcemap: process.env.NODE_ENV !== 'production',
@@ -34,5 +43,5 @@ export default defineConfig({
     esbuildOptions: { target: 'esnext' }
   },
   publicDir: 'public',
-  base: './'
+  base: '/'
 });

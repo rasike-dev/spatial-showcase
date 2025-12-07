@@ -78,6 +78,16 @@ export async function loadPortfolio(portfolioIdOrToken) {
 }
 
 /**
+ * Get project by ID from portfolio data
+ */
+export function getProjectById(portfolioData, projectId) {
+  if (!portfolioData || !portfolioData.projects) {
+    return null;
+  }
+  return portfolioData.projects.find(p => p.id === projectId) || null;
+}
+
+/**
  * Converts portfolio data to scene format
  */
 export function portfolioToSceneData(portfolioData) {
@@ -111,6 +121,7 @@ export function portfolioToSceneData(portfolioData) {
   return {
     portfolio,
     panels,
+    projects: projects, // Include full project data for navigation (projects already have media from loadPortfolio)
     portfolioMedia,
     colors,
     template: portfolio.template_id || 'creative-portfolio',

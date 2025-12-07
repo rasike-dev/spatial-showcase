@@ -24,7 +24,7 @@ export default function ProjectEditPage() {
   const { portfolioId, id } = useParams<{ portfolioId: string; id: string }>();
   const queryClient = useQueryClient();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const navigateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', id],

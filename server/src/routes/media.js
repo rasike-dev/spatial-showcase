@@ -195,8 +195,35 @@ router.delete('/:id', authenticateToken, async (req, res, next) => {
   }
 });
 
-// Serve uploaded files
-router.use('/uploads', express.static(uploadDir));
+// Serve uploaded files with CORS headers
+router.use('/uploads', (req, res, next) => {
+  // Set CORS headers for static files (matching global CORS config)
+  const origin = req.headers.origin;
+  
+  // In development, allow all localhost origins
+  if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+    if (origin && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+  } else {
+    // In production, check against allowed origins
+    const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [];
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+  }
+  
+  // Allow all methods and headers for preflight requests
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return res.status(200).end();
+  }
+  
+  next();
+}, express.static(uploadDir));
 
 export default router;
 

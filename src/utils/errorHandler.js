@@ -94,3 +94,39 @@ export function handleApiError(error, context = '') {
   
   return { message, details };
 }
+
+/**
+ * Safely import a module dynamically with error handling
+ * @param {Function|Promise} loader - Function that returns a promise or a promise itself
+ * @param {string} description - Description of what's being loaded (for error messages)
+ * @returns {Promise<any>} The imported module
+ */
+export async function safeDynamicImport(loader, description = 'module') {
+  try {
+    logger.debug(`[ErrorHandler] Loading ${description}...`);
+    
+    // If loader is a function, call it; otherwise use it directly as a promise
+    const modulePromise = typeof loader === 'function' ? loader() : loader;
+    const module = await modulePromise;
+    
+    logger.debug(`[ErrorHandler] Successfully loaded ${description}`);
+    return module;
+  } catch (error) {
+    logger.error(`[ErrorHandler] Failed to load ${description}:`, error);
+    handleSceneLoadError(description, error);
+    throw error;
+  }
+}
+
+/**
+ * Handle errors that occur during scene loading
+ * @param {string} sceneName - Name of the scene that failed to load
+ * @param {Error} error - The error that occurred
+ */
+export function handleSceneLoadError(sceneName, error) {
+  const message = `Failed to load scene: ${sceneName}`;
+  const details = error?.message || 'An unknown error occurred while loading the scene.';
+  
+  logger.error(`[ErrorHandler] Scene load error for "${sceneName}":`, error);
+  showError(message, details);
+}

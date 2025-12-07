@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Share Link Generation</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+    pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    .error { color: red; }
+    .success { color: green; }
+  </style>
+</head>
+<body>
+  <h1>Test Share Link Generation</h1>
+  <div>
+    <label>Portfolio ID: <input type="text" id="portfolioId" placeholder="Enter portfolio ID" /></label><br/>
+    <label>Token: <input type="text" id="token" placeholder="Enter auth token" /></label><br/>
+    <button onclick="testGenerate()">Test Generate Share Link</button>
+    <button onclick="testHealth()">Test Health Endpoint</button>
+  </div>
+  <div id="result"></div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+
+    async function testHealth() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '<p>Testing health endpoint...</p>';
+      
+      try {
+        const start = Date.now();
+        const response = await fetch(`${API_URL.replace('/api', '')}/health`);
+        const data = await response.json();
+        const duration = Date.now() - start;
+        
+        resultDiv.innerHTML = `
+          <h2 class="success">Health Check Success</h2>
+          <p>Duration: ${duration}ms</p>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <h2 class="error">Health Check Failed</h2>
+          <pre>${error.message}</pre>
+        `;
+      }
+    }
+
+    async function testGenerate() {
+      const portfolioId = document.getElementById('portfolioId').value;
+      const token = document.getElementById('token').value;
+      const resultDiv = document.getElementById('result');
+      
+      if (!portfolioId) {
+        resultDiv.innerHTML = '<p class="error">Please enter a portfolio ID</p>';
+        return;
+      }
+      
+      if (!token) {
+        resultDiv.innerHTML = '<p class="error">Please enter an auth token</p>';
+        return;
+      }
+      
+      resultDiv.innerHTML = '<p>Generating share link...</p>';
+      
+      try {
+        const start = Date.now();
+        console.log('[Test] Making request to:', `${API_URL}/share/${portfolioId}/generate`);
+        console.log('[Test] With token:', token.substring(0, 20) + '...');
+        
+        const response = await fetch(`${API_URL}/share/${portfolioId}/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({})
+        });
+        
+        const duration = Date.now() - start;
+        console.log('[Test] Response status:', response.status);
+        console.log('[Test] Duration:', duration, 'ms');
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        console.log('[Test] Response data:', data);
+        
+        resultDiv.innerHTML = `
+          <h2 class="success">Share Link Generated Successfully!</h2>
+          <p>Duration: ${duration}ms</p>
+          <p><strong>Share URL:</strong> ${data.shareUrl}</p>
+          <p><strong>Token:</strong> ${data.token.substring(0, 20)}...</p>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+      } catch (error) {
+        console.error('[Test] Error:', error);
+        resultDiv.innerHTML = `
+          <h2 class="error">Share Link Generation Failed</h2>
+          <p><strong>Error:</strong> ${error.message}</p>
+          <pre>${error.stack || JSON.stringify(error, null, 2)}</pre>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>
+

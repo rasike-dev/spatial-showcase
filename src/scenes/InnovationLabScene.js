@@ -20,26 +20,57 @@ export class InnovationLabScene extends BaseScene {
 
   /**
    * Lifecycle hook invoked by the scene manager to set up entities.
+   * @param {Object} options - Optional scene data
+   * @param {Object} options.portfolioData - Portfolio data from API
    */
-  init() {
+  init(options = {}) {
     this.setupCamera();
 
-    this.sceneData = getShowcaseScene("innovation_lab");
-    if (!this.sceneData) {
-      logger.warn("[InnovationLabScene] Missing scene data for innovation_lab");
-      return;
+    // Check if we have portfolio data from API
+    const portfolioData = options?.portfolioData || this.world.portfolioData;
+    
+    // Use portfolio data if available, otherwise fallback to static content
+    if (portfolioData && portfolioData.projects && portfolioData.projects.length > 0) {
+      logger.info("[InnovationLabScene] Using portfolio projects data:", portfolioData.projects.length, "projects");
+      
+      // Convert projects to panels (show first 2 projects)
+      const projectPanels = portfolioData.projects.slice(0, 2).map(project => {
+        const projectMedia = project.media || [];
+        const firstImage = projectMedia.find(m => m.type === 'image');
+        const firstVideo = projectMedia.find(m => m.type === 'video');
+        
+        return {
+          title: project.title,
+          description: project.description || "",
+          image: firstImage?.url || null,
+          video: firstVideo?.url || null,
+        };
+      });
+      
+      this.renderPanels(projectPanels);
+      
+      // Add back button in the middle
+      createBackButton(this.world, this.sceneManager, this.entities);
+      
+      // Don't render default teleports when using portfolio data
+      logger.info("[InnovationLabScene] Using portfolio data - skipping default teleports");
+    } else {
+      // Fallback to static content
+      this.sceneData = getShowcaseScene("innovation_lab");
+      if (!this.sceneData) {
+        logger.warn("[InnovationLabScene] Missing scene data for innovation_lab");
+        return;
+      }
+
+      logger.info("InnovationLabScene: Rendering static project panels...");
+      this.renderPanels(this.sceneData.panels || []);
+      
+      // Add back button in the middle
+      createBackButton(this.world, this.sceneManager, this.entities);
+
+      // Render forward teleports (if any) - only for static content
+      this.renderTeleports(this.sceneData.teleports || []);
     }
-
-    logger.info("InnovationLabScene: Rendering project panels...");
-
-    // Render panels on both sides (like Main Hall)
-    this.renderPanels(this.sceneData.panels || []);
-
-    // Add back button in the middle
-    createBackButton(this.world, this.sceneManager, this.entities);
-
-    // Render forward teleports (if any)
-    this.renderTeleports(this.sceneData.teleports || []);
 
     logger.info(`InnovationLabScene: Created ${this.entities.length} entities`);
   }
@@ -182,7 +213,9 @@ export class InnovationLabScene extends BaseScene {
       // Add a small delay to ensure any previous scene transitions are complete
       // This helps with stability when navigating quickly
       setTimeout(() => {
-        this.navigateToScene("impact_analyzer")
+        this.navigateToScene("impact_analyzer", {
+          portfolioData: this.world.portfolioData
+        })
           .then(() => {
             logger.info("[InnovationLabScene] Navigation to Impact Analyzer successful");
           })

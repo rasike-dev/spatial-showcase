@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { mediaApi } from '@/api/media';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trash2, Upload, Image as ImageIcon, Video } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Toast } from '@/components/ui/toast';
 import { LoadingSpinner } from '@/components/ui/loading';
 
@@ -13,6 +13,8 @@ export default function MediaPage() {
   const queryClient = useQueryClient();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputEmptyRef = useRef<HTMLInputElement>(null);
 
   const queryKey = projectId ? ['media', 'project', projectId] : ['media', 'portfolio', portfolioId];
   const queryFn = projectId 
@@ -70,6 +72,19 @@ export default function MediaPage() {
                  file.type.startsWith('video/') ? 'video' : 'other';
     
     uploadMutation.mutate({ file, type });
+    
+    // Reset input so the same file can be selected again
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleUploadEmptyClick = () => {
+    fileInputEmptyRef.current?.click();
   };
 
   const handleDelete = async (id: string) => {
@@ -101,20 +116,21 @@ export default function MediaPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <label htmlFor="file-upload">
-            <Button as="span" disabled={uploading || uploadMutation.isPending}>
-              <Upload className="w-4 h-4 mr-2" />
-              {uploading || uploadMutation.isPending ? 'Uploading...' : 'Upload Media'}
-            </Button>
-            <input
-              id="file-upload"
-              type="file"
-              accept="image/*,video/*"
-              onChange={handleFileSelect}
-              className="hidden"
-              disabled={uploading || uploadMutation.isPending}
-            />
-          </label>
+          <Button 
+            onClick={handleUploadClick}
+            disabled={uploading || uploadMutation.isPending}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {uploading || uploadMutation.isPending ? 'Uploading...' : 'Upload Media'}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            onChange={handleFileSelect}
+            className="hidden"
+            disabled={uploading || uploadMutation.isPending}
+          />
         </div>
       </div>
 
@@ -166,19 +182,17 @@ export default function MediaPage() {
             <Card className="col-span-full">
               <CardContent className="py-12 text-center">
                 <p className="text-gray-500 mb-4">No media files yet</p>
-                <label htmlFor="file-upload-empty">
-                  <Button as="span">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Your First Media
-                  </Button>
-                  <input
-                    id="file-upload-empty"
-                    type="file"
-                    accept="image/*,video/*"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </label>
+                <Button onClick={handleUploadEmptyClick}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Your First Media
+                </Button>
+                <input
+                  ref={fileInputEmptyRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
               </CardContent>
             </Card>
           )}

@@ -82,6 +82,24 @@ spatial-showcase/
 
 ## 🚀 Quick Start
 
+### Option 1: Quick Start (All Services)
+
+```bash
+# Clone the repository
+git clone https://github.com/rasike-a/spatial-showcase.git
+cd spatial-showcase
+
+# Start all services at once
+./start-dev.sh
+```
+
+This will start:
+- Backend API on `http://localhost:3000`
+- Admin Panel on `http://localhost:5173`
+- VR App on `http://localhost:8081`
+
+### Option 2: Manual Setup
+
 ### 1. Clone the Repository
 
 ```bash
@@ -351,7 +369,8 @@ DB_NAME=spatial_showcase
 DB_USER=admin
 DB_PASSWORD=
 JWT_SECRET=your-secret-key
-CORS_ORIGIN=http://localhost:5176
+CORS_ORIGIN=http://localhost:5173,http://localhost:8081
+VR_APP_URL=http://localhost:8081
 ```
 
 ### Admin Panel (`admin-panel/.env`)
@@ -359,23 +378,52 @@ CORS_ORIGIN=http://localhost:5176
 VITE_API_URL=http://localhost:3000/api
 ```
 
+### VR App (root `.env` or `vite.config.js`)
+```env
+VITE_API_URL=http://localhost:3000/api
+```
+
+**📚 For detailed configuration, see [CONFIGURATION_GUIDE.md](./CONFIGURATION_GUIDE.md)**
+
+## 🔗 Share Links & Flow
+
+### How Share Links Work
+
+1. **Generate Share Link** - In admin panel, click "Share Portfolio"
+2. **Backend Creates Token** - Unique token stored in database
+3. **Share URL Format** - `http://localhost:8081/#token=ABC123...`
+4. **VR App Loads** - Extracts token from URL hash
+5. **API Call** - Fetches portfolio data using token
+6. **Scene Renders** - Portfolio displayed in VR
+
+**📚 For complete flow documentation, see [SHARE_LINK_FLOW.md](./SHARE_LINK_FLOW.md)**
+
+### Important Notes
+
+- **Share links require production build** - Use `npm run build && npm run serve` for share links
+- **Hash fragments** - Share URLs use `#token=...` for client-side routing
+- **Token extraction** - VR app checks hash first, then query params, then legacy paths
+
 ## 🚢 Deployment
 
 ### Backend
 - Deploy to services like Railway, Render, or AWS
-- Set environment variables
-- Run database migrations
-- Configure CORS origins
+- Set environment variables (see [CONFIGURATION_GUIDE.md](./CONFIGURATION_GUIDE.md))
+- Run database migrations: `npm run db:migrate`
+- Configure CORS origins for production domains
+- Set `VR_APP_URL` to production VR app URL
 
 ### Admin Panel
 - Build: `cd admin-panel && npm run build`
 - Deploy `dist/` folder to static hosting (Vercel, Netlify, etc.)
-- Set `VITE_API_URL` to production API URL
+- Set `VITE_API_URL` to production API URL in `.env`
 
 ### VR App
 - Build: `npm run build`
 - Deploy `dist/` folder to static hosting with HTTPS
-- Configure API URL in code
+- Use production server: `npm run serve` or configure nginx/apache
+- Set `VITE_API_URL` to production API URL
+- Ensure `VR_APP_URL` in backend matches VR app domain
 
 ## 🤝 Contributing
 
@@ -398,6 +446,13 @@ This project is part of the Meta Horizon Hackathon.
 - [ ] Scene understanding
 - [ ] Multi-user support
 - [ ] Advanced animations
+
+## 📚 Additional Documentation
+
+- **[SHARE_LINK_FLOW.md](./SHARE_LINK_FLOW.md)** - Complete share link flow documentation
+- **[CONFIGURATION_GUIDE.md](./CONFIGURATION_GUIDE.md)** - Detailed configuration guide
+- **[TESTING_GUIDE.md](./TESTING_GUIDE.md)** - Testing instructions and checklist
+- **[DEBUG_SHARE_LINKS.md](./DEBUG_SHARE_LINKS.md)** - Troubleshooting share link issues
 
 ## 📞 Support
 

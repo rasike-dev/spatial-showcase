@@ -22,7 +22,7 @@ export default function PortfolioEditPage() {
   const [settings, setSettings] = useState<Record<string, any>>({});
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const navigateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: portfolio, isLoading } = useQuery({
     queryKey: ['portfolio', id],

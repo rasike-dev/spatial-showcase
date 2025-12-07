@@ -14,7 +14,7 @@ import { Toast } from '@/components/ui/toast';
 const projectSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  order_index: z.number().int().min(0).default(0),
+  order_index: z.number().int().min(0),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -24,7 +24,7 @@ export default function ProjectCreatePage() {
   const { portfolioId } = useParams<{ portfolioId: string }>();
   const queryClient = useQueryClient();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const navigateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     register,
@@ -102,7 +102,7 @@ export default function ProjectCreatePage() {
           <CardDescription>Enter the project information</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
             <div>
               <label htmlFor="title" className="block text-sm font-medium mb-2">
                 Title *

@@ -26,16 +26,27 @@ pool.on('error', (err) => {
   console.error('❌ Database connection error:', err);
 });
 
-// Helper function to execute queries
-export async function query(text, params) {
+// Helper function to execute queries with timeout
+export async function query(text, params, timeoutMs = 3000) {
   const start = Date.now();
   try {
-    const res = await pool.query(text, params);
+    // Create a promise that rejects after timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`Query timeout after ${timeoutMs}ms`)), timeoutMs);
+    });
+
+    // Race between query and timeout
+    const res = await Promise.race([
+      pool.query(text, params),
+      timeoutPromise
+    ]);
+
     const duration = Date.now() - start;
-    console.log('Executed query', { text, duration, rows: res.rowCount });
+    console.log('Executed query', { text: text.substring(0, 100), duration, rows: res.rowCount });
     return res;
   } catch (error) {
-    console.error('Query error:', error);
+    const duration = Date.now() - start;
+    console.error('Query error:', { error: error.message, duration, text: text.substring(0, 100) });
     throw error;
   }
 }

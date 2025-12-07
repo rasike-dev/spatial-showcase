@@ -18,28 +18,82 @@ export class GalleryScene extends BaseScene {
 
   /**
    * Lifecycle hook invoked by the scene manager to set up entities.
+   * @param {Object} options - Optional scene data
+   * @param {Object} options.portfolioData - Portfolio data from API
    */
-  init() {
+  init(options = {}) {
     this.setupCamera();
 
-    this.sceneData = getShowcaseScene("gallery");
-    if (!this.sceneData) {
-      logger.warn("[GalleryScene] Missing scene data for gallery");
-      return;
+    // Check if we have portfolio data from API
+    const portfolioData = options?.portfolioData || this.world.portfolioData;
+    
+    // Use portfolio data if available, otherwise fallback to static content
+    if (portfolioData && portfolioData.portfolioMedia && portfolioData.portfolioMedia.length > 0) {
+      logger.info("[GalleryScene] Using portfolio media data:", portfolioData.portfolioMedia.length, "items");
+      
+      // Convert portfolio media to gallery panels
+      const galleryPanels = this.convertMediaToPanels(portfolioData.portfolioMedia);
+      this.renderPanels(galleryPanels);
+      
+      // Add back button in the middle
+      createBackButton(this.world, this.sceneManager, this.entities);
+      
+      // Don't render default teleports when using portfolio data
+      logger.info("[GalleryScene] Using portfolio data - skipping default teleports");
+    } else {
+      // Fallback to static content
+      this.sceneData = getShowcaseScene("gallery");
+      if (!this.sceneData) {
+        logger.warn("[GalleryScene] Missing scene data for gallery");
+        return;
+      }
+
+      logger.info("GalleryScene: Rendering static gallery content...");
+      this.renderPanels(this.sceneData.panels || []);
+      
+      // Add back button in the middle
+      createBackButton(this.world, this.sceneManager, this.entities);
+
+      // Render forward navigation teleports (if any) - only for static content
+      this.renderTeleports(this.sceneData.teleports || []);
     }
 
-    logger.info("GalleryScene: Rendering gallery content...");
-
-    // Render panels on both sides (like Main Hall)
-    this.renderPanels(this.sceneData.panels || []);
-
-    // Add back button in the middle
-    createBackButton(this.world, this.sceneManager, this.entities);
-
-    // Render forward navigation teleports (if any)
-    this.renderTeleports(this.sceneData.teleports || []);
-
     logger.info(`GalleryScene: Created ${this.entities.length} entities`);
+  }
+
+  /**
+   * Convert portfolio media to gallery panels
+   * @param {Array} media - Array of media items
+   * @returns {Array} Array of panel objects
+   */
+  convertMediaToPanels(media) {
+    // Group media by type or create panels
+    const imageMedia = media.filter(m => m.type === 'image');
+    const videoMedia = media.filter(m => m.type === 'video');
+    
+    const panels = [];
+    
+    // Create gallery panel from images
+    if (imageMedia.length > 0) {
+      panels.push({
+        title: "Portfolio Images",
+        description: `${imageMedia.length} image${imageMedia.length > 1 ? 's' : ''} from your portfolio`,
+        thumbnails: imageMedia.slice(0, 4).map(m => m.url),
+        images: imageMedia.map(m => m.url),
+      });
+    }
+    
+    // Create gallery panel from videos
+    if (videoMedia.length > 0) {
+      panels.push({
+        title: "Portfolio Videos",
+        description: `${videoMedia.length} video${videoMedia.length > 1 ? 's' : ''} from your portfolio`,
+        thumbnails: videoMedia.slice(0, 4).map(m => m.url),
+        images: videoMedia.map(m => m.url),
+      });
+    }
+    
+    return panels;
   }
 
   /**
@@ -173,11 +227,14 @@ export class GalleryScene extends BaseScene {
 
     this.trackEntity(entity);
 
-    bindPanelButton(entity, {
+      bindPanelButton(entity, {
       label,
       onClick: () => {
         logger.info(`[GalleryScene] Portal clicked: ${label} -> ${targetSceneId}`);
-        this.navigateToScene(targetSceneId);
+        // Pass portfolio data when navigating
+        this.navigateToScene(targetSceneId, {
+          portfolioData: this.world.portfolioData
+        });
       }
     });
 

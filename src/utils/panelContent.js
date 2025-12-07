@@ -104,8 +104,8 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
       // Determine if we're using video or image
       // For now, use image as poster/thumbnail, video will be shown in popup on click
       const mediaSrc = content.image || content.video || "";
-      const isVideo = false; // Disable video in panel for now - PanelUI has limitations with dynamic video src
-      // Videos will be handled via click-to-popup instead
+      const isVideo = !!content.video && !content.image; // Only use video if no image is provided
+      // Videos will be handled via click-to-popup instead, or shown if no image
       
       logger.info(`[PanelContent] Binding media for entity ${entity.index}`, {
         hasVideo: !!content.video,
@@ -134,7 +134,7 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
         videoElement = document.querySelector(".project-video");
       }
 
-      if (isVideo) {
+      if (isVideo && mediaSrc) {
         if (!videoElement) {
           logger.error(`[PanelContent] Video element not found for entity ${entity.index}`, {
             document: document,
@@ -636,8 +636,40 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
           imageElement.addEventListener("error", handleImageError, { once: true });
         }
 
-        // Add click handler if video exists (to show video popup)
-        if (content.video && content.onImageClick) {
+        // Add click handler for navigation or video popup
+        if (content.onClick) {
+          // Remove existing click handler if any
+          if (imageElement.__clickHandler) {
+            imageElement.removeEventListener("click", imageElement.__clickHandler);
+          }
+
+          const clickHandler = (event) => {
+            if (event) {
+              event.stopPropagation();
+            }
+            logger.info(`[PanelContent] Panel clicked, triggering onClick handler`);
+            
+            // Track panel click
+            if (window.portfolioId && content.panelId) {
+              trackPanelView(window.portfolioId, content.panelId, content.title);
+            }
+            
+            content.onClick();
+          };
+
+          imageElement.addEventListener("click", clickHandler);
+          imageElement.__clickHandler = clickHandler;
+          
+          // Make image look clickable
+          if (imageElement.style) {
+            imageElement.style.cursor = "pointer";
+          } else if (imageElement.setProperties) {
+            imageElement.setProperties({ style: "cursor: pointer;" });
+          }
+          
+          logger.info(`[PanelContent] Added click handler to panel for navigation`);
+        } else if (content.video && content.onImageClick) {
+          // Legacy: video popup handler
           // Remove existing click handler if any
           if (imageElement.__videoClickHandler) {
             imageElement.removeEventListener("click", imageElement.__videoClickHandler);
