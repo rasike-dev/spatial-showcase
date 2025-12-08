@@ -14,6 +14,18 @@ import { trackPanelView, trackMediaInteraction } from "./analytics.js";
  * @param {number} maxAttempts - Number of RAF retries while waiting for document
  */
 export function bindPanelContent(entity, content, maxAttempts = 200) {
+  console.log(`[PanelContent] ========== STARTING BINDING ==========`);
+  console.log(`[PanelContent] Entity index:`, entity.index);
+  console.log(`[PanelContent] Content data:`, {
+    name: content.name,
+    title: content.title,
+    description: content.description,
+    image: content.image,
+    video: content.video,
+    hasImage: !!content.image,
+    hasVideo: !!content.video
+  });
+  
   function attemptBinding(attempt = 0) {
     try {
       // Check if entity.index is valid
@@ -36,66 +48,343 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
           logger.warn(
             `[PanelContent] Document not ready for entity ${entity.index} after ${maxAttempts} attempts`
           );
+          console.error(`[PanelContent] ❌ Document never became available for entity ${entity.index}`);
         }
         return;
       }
+      
+      // Add a small delay to ensure UIKitML has fully rendered
+      if (attempt === 0) {
+        // Use setTimeout instead of await since this function is called via requestAnimationFrame
+        setTimeout(() => {
+          // Continue with binding after delay
+          attemptBinding(attempt + 1);
+        }, 100);
+        return;
+      }
+      
+      // Log document structure for debugging (only on first few attempts)
+      if (attempt < 3) {
+        console.log(`[PanelContent] Document ready for entity ${entity.index} (attempt ${attempt}):`, {
+          hasQuerySelector: !!document.querySelector,
+          hasGetElementById: !!document.getElementById,
+          hasQuerySelectorAll: !!document.querySelectorAll,
+          documentKeys: Object.keys(document || {}).slice(0, 10),
+          documentType: typeof document,
+          isDocument: document instanceof Document
+        });
+      }
 
-      // Bind title - try multiple approaches
-      if (content.title) {
-        let titleElement = document.getElementById?.("panel-title");
+      // UIKitML compiled JSON uses IDs, not binding attributes
+      // The compiled projectPanel.json has: panel-title, panel-description, panel-image
+      let titleElement = null;
+      
+      // Method 1: Find by ID (compiled UIKitML uses IDs)
+      if (document.getElementById) {
+        titleElement = document.getElementById("panel-title");
+      }
 
-        // If not found, try querySelector
-        if (!titleElement && document.querySelector) {
-          titleElement = document.querySelector("#panel-title");
-        }
+      // Method 2: Try querySelector with ID
+      if (!titleElement && document.querySelector) {
+        titleElement = document.querySelector("#panel-title");
+      }
 
-        // If still not found, try class-based selection
-        if (!titleElement && document.querySelector) {
-          titleElement = document.querySelector(".project-title");
-        }
+      // Method 3: Try class-based selection
+      if (!titleElement && document.querySelector) {
+        titleElement = document.querySelector(".project-title");
+      }
+      
+      // Method 4: Try binding attribute (in case source JSON is used)
+      if (!titleElement && document.querySelector) {
+        titleElement = document.querySelector('[binding="dynamicTitle"]') || 
+                      document.querySelector('[binding=dynamicTitle]');
+      }
+      
+      if (titleElement) {
+        console.log(`[PanelContent] ✅ Found title element for entity ${entity.index}:`, {
+          id: titleElement.id,
+          tagName: titleElement.tagName,
+          hasSetProperties: !!titleElement.setProperties,
+          currentText: titleElement.textContent || titleElement.innerText
+        });
+      } else {
+        console.warn(`[PanelContent] ❌ Title element NOT found for entity ${entity.index}`);
+      }
 
-        if (titleElement) {
-          if (titleElement.setProperties) {
-            titleElement.setProperties({ text: content.title });
-          } else if (titleElement.textContent !== undefined) {
-            titleElement.textContent = content.title;
-          } else if (titleElement.innerText !== undefined) {
-            titleElement.innerText = content.title;
-          }
-          logger.debug(`[PanelContent] Set title: ${content.title}`);
-          
-          // Track panel view when title is set (panel is visible)
-          if (content.panelId && content.portfolioId) {
-            trackPanelView(content.portfolioId, content.panelId, content.title);
+      // Try to set title if element is found (don't block rest of binding if not found)
+      if (titleElement) {
+        // Use name if available, otherwise use title, otherwise use a default
+        const displayText = content.name || content.title || 'Media';
+        
+        logger.info(`[PanelContent] Attempting to set title for entity ${entity.index}: "${displayText}"`);
+        logger.info(`[PanelContent] Title element found:`, {
+          element: titleElement,
+          hasSetProperties: !!titleElement.setProperties,
+          hasTextContent: titleElement.textContent !== undefined,
+          hasInnerText: titleElement.innerText !== undefined,
+          hasChildren: !!titleElement.children,
+          childrenType: Array.isArray(titleElement.children) ? 'array' : typeof titleElement.children,
+          tagName: titleElement.tagName,
+          nodeType: titleElement.nodeType
+        });
+        
+        // Try multiple methods to set the text
+        let textSet = false;
+        
+        // Try ALL methods in parallel (don't wait for one to fail)
+        // UIKitML elements might support multiple methods
+        
+        // Method 1: UIKitML setProperties (preferred for UIKitML elements)
+        if (titleElement.setProperties) {
+          try {
+            console.log(`[PanelContent] Attempting to set title via setProperties:`, {
+              element: titleElement,
+              displayText: displayText,
+              hasGetProperties: !!titleElement.getProperties
+            });
+            
+            // Set the text property (UIKitML text elements use 'text' property)
+            titleElement.setProperties({ text: displayText });
+            textSet = true;
+            logger.info(`[PanelContent] ✅ Title setProperties called: "${displayText}"`);
+            console.log(`[PanelContent] ✅ Title setProperties called successfully`);
+            
+            // Verify it was set (async verification)
+            setTimeout(() => {
+              let checkText = null;
+              if (titleElement.getProperties) {
+                try {
+                  const props = titleElement.getProperties();
+                  checkText = props?.text;
+                  console.log(`[PanelContent] Title getProperties() returned:`, props);
+                } catch (e) {
+                  console.warn(`[PanelContent] Title getProperties() failed:`, e);
+                }
+              }
+              
+              if (!checkText) {
+                checkText = titleElement.textContent || titleElement.innerText;
+              }
+              
+              console.log(`[PanelContent] Title verification:`, {
+                expected: displayText,
+                actual: checkText,
+                match: checkText === displayText || checkText?.includes(displayText)
+              });
+              
+              if (checkText === displayText || checkText?.includes(displayText)) {
+                logger.info(`[PanelContent] ✅ Title verified via setProperties: "${displayText}"`);
+              } else {
+                logger.warn(`[PanelContent] ⚠️ Title setProperties called but not verified. Expected: "${displayText}", Got: "${checkText}"`);
+              }
+            }, 100);
+          } catch (e) {
+            logger.warn(`[PanelContent] setProperties (text) failed:`, e);
+            console.error(`[PanelContent] ❌ setProperties failed:`, e);
+            textSet = false; // Allow fallback methods
           }
         } else {
-          logger.warn(`[PanelContent] Title element not found for entity ${entity.index}`);
+          console.warn(`[PanelContent] Title element has no setProperties method!`);
+        }
+        
+        // Method 2: textContent (standard DOM) - try even if setProperties was called
+        if (titleElement.textContent !== undefined) {
+          try {
+            titleElement.textContent = displayText;
+            if (titleElement.textContent === displayText) {
+              textSet = true;
+              logger.info(`[PanelContent] ✅ Title also set via textContent: "${displayText}"`);
+              console.log(`[PanelContent] ✅ Title textContent set successfully`);
+            }
+          } catch (e) {
+            logger.warn(`[PanelContent] textContent failed:`, e);
+          }
+        }
+        
+        // Method 3: innerText (standard DOM) - try even if other methods were called
+        if (titleElement.innerText !== undefined) {
+          try {
+            titleElement.innerText = displayText;
+            if (titleElement.innerText === displayText) {
+              textSet = true;
+              logger.info(`[PanelContent] ✅ Title also set via innerText: "${displayText}"`);
+              console.log(`[PanelContent] ✅ Title innerText set successfully`);
+            }
+          } catch (e) {
+            logger.warn(`[PanelContent] innerText failed:`, e);
+          }
+        }
+        
+        // Method 4: Direct children manipulation (for UIKitML custom elements)
+        if (!textSet && titleElement.children) {
+          try {
+            if (Array.isArray(titleElement.children)) {
+              titleElement.children = [displayText];
+              textSet = true;
+              logger.info(`[PanelContent] ✅ Title set via children array: "${displayText}"`);
+            } else if (titleElement.children.length > 0) {
+              // If children is a NodeList or similar, try to update first child
+              const firstChild = titleElement.children[0];
+              if (firstChild && firstChild.textContent !== undefined) {
+                firstChild.textContent = displayText;
+                textSet = true;
+                logger.info(`[PanelContent] ✅ Title set via first child textContent: "${displayText}"`);
+              }
+            }
+          } catch (e) {
+            logger.warn(`[PanelContent] children manipulation failed:`, e);
+          }
+        }
+        
+        // Method 5: Try to find and update any text nodes
+        if (!textSet && titleElement.childNodes) {
+          try {
+            for (let i = 0; i < titleElement.childNodes.length; i++) {
+              const node = titleElement.childNodes[i];
+              if (node.nodeType === 3) { // TEXT_NODE
+                node.textContent = displayText;
+                textSet = true;
+                logger.info(`[PanelContent] ✅ Title set via text node: "${displayText}"`);
+                break;
+              }
+            }
+          } catch (e) {
+            logger.warn(`[PanelContent] Text node update failed:`, e);
+          }
+        }
+        
+        // Method 6: Try innerHTML as last resort
+        if (!textSet && titleElement.innerHTML !== undefined) {
+          try {
+            titleElement.innerHTML = displayText;
+            textSet = true;
+            logger.info(`[PanelContent] ✅ Title set via innerHTML: "${displayText}"`);
+          } catch (e) {
+            logger.warn(`[PanelContent] innerHTML failed:`, e);
+          }
+        }
+        
+        if (textSet) {
+          // Track panel view when title is set (panel is visible)
+          if (content.panelId && content.portfolioId) {
+            trackPanelView(content.portfolioId, content.panelId, displayText);
+          }
+        } else {
+          logger.error(`[PanelContent] ❌ All methods failed to set title for entity ${entity.index}. Element details:`, {
+            element: titleElement,
+            displayText: displayText,
+            content: content
+          });
+        }
+      } else {
+        // Title element not found yet - retry in a few frames without blocking
+        if (attempt < maxAttempts) {
+          logger.debug(`[PanelContent] Title element not found for entity ${entity.index}, will retry...`);
+          // Retry title binding separately without blocking rest of content
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              const retryTitleElement = document.getElementById?.("panel-title") || 
+                                       document.querySelector?.("#panel-title") ||
+                                       document.querySelector?.(".project-title");
+              if (retryTitleElement) {
+                const displayText = content.name || content.title || 'Media';
+                if (retryTitleElement.setProperties) {
+                  try {
+                    retryTitleElement.setProperties({ text: displayText });
+                    logger.info(`[PanelContent] ✅ Title set on retry via setProperties: "${displayText}"`);
+                  } catch (e) {
+                    logger.warn(`[PanelContent] Retry setProperties failed:`, e);
+                  }
+                } else if (retryTitleElement.textContent !== undefined) {
+                  retryTitleElement.textContent = displayText;
+                  logger.info(`[PanelContent] ✅ Title set on retry via textContent: "${displayText}"`);
+                } else if (retryTitleElement.innerText !== undefined) {
+                  retryTitleElement.innerText = displayText;
+                  logger.info(`[PanelContent] ✅ Title set on retry via innerText: "${displayText}"`);
+                }
+              }
+            });
+          });
+        } else {
+          logger.warn(`[PanelContent] Title element not found for entity ${entity.index} after ${maxAttempts} attempts. Document available:`, !!document);
         }
       }
 
-      // Bind description
+      // Bind description (additional description) - shown last
       if (content.description) {
-        let descriptionElement = document.getElementById?.("panel-description");
+        let descriptionElement = null;
+        
+        // Method 1: Find by ID (compiled UIKitML uses IDs)
+        if (document.getElementById) {
+          descriptionElement = document.getElementById("panel-description");
+        }
 
-        // If not found, try querySelector
+        // Method 2: Try querySelector with ID
         if (!descriptionElement && document.querySelector) {
           descriptionElement = document.querySelector("#panel-description");
         }
 
-        // If still not found, try class-based selection
+        // Method 3: Try class-based selection
         if (!descriptionElement && document.querySelector) {
           descriptionElement = document.querySelector(".project-description");
         }
+        
+        // Method 4: Try binding attribute (in case source JSON is used)
+        if (!descriptionElement && document.querySelector) {
+          descriptionElement = document.querySelector('[binding="dynamicDescription"]') || 
+                              document.querySelector('[binding=dynamicDescription]');
+        }
+        
+        if (descriptionElement) {
+          console.log(`[PanelContent] ✅ Found description element for entity ${entity.index}:`, {
+            id: descriptionElement.id,
+            tagName: descriptionElement.tagName,
+            hasSetProperties: !!descriptionElement.setProperties
+          });
+        } else {
+          console.warn(`[PanelContent] ❌ Description element NOT found for entity ${entity.index}`);
+        }
 
         if (descriptionElement) {
+          let descSet = false;
+          
+          // Method 1: UIKitML binding - set the text property directly
+          // UIKitML bindings work by setting the actual property (text for text elements)
           if (descriptionElement.setProperties) {
-            descriptionElement.setProperties({ text: content.description });
-          } else if (descriptionElement.textContent !== undefined) {
-            descriptionElement.textContent = content.description;
-          } else if (descriptionElement.innerText !== undefined) {
-            descriptionElement.innerText = content.description;
+            try {
+              descriptionElement.setProperties({ text: content.description });
+              descSet = true;
+              logger.info(`[PanelContent] ✅ Description set via setProperties (text): "${content.description}"`);
+            } catch (e) {
+              logger.warn(`[PanelContent] setProperties (text) failed:`, e);
+            }
           }
-          logger.debug(`[PanelContent] Set description: ${content.description}`);
+          
+          // Method 3: textContent
+          if (!descSet && descriptionElement.textContent !== undefined) {
+            try {
+              descriptionElement.textContent = content.description;
+              descSet = true;
+              logger.info(`[PanelContent] ✅ Description set via textContent: "${content.description}"`);
+            } catch (e) {
+              logger.warn(`[PanelContent] textContent failed:`, e);
+            }
+          }
+          
+          // Method 4: innerText
+          if (!descSet && descriptionElement.innerText !== undefined) {
+            try {
+              descriptionElement.innerText = content.description;
+              descSet = true;
+              logger.info(`[PanelContent] ✅ Description set via innerText: "${content.description}"`);
+            } catch (e) {
+              logger.warn(`[PanelContent] innerText failed:`, e);
+            }
+          }
+          
+          if (!descSet) {
+            logger.warn(`[PanelContent] ⚠️ Could not set description for entity ${entity.index}`);
+          }
         } else {
           logger.warn(`[PanelContent] Description element not found for entity ${entity.index}`);
         }
@@ -114,21 +403,58 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
         isVideo
       });
       
-      // Get both image and video elements
-      let imageElement = document.getElementById?.("panel-image");
-      let videoElement = document.getElementById?.("panel-video");
-
-      // If not found, try querySelector
+      // UIKitML compiled JSON uses IDs, not binding attributes
+      // The compiled projectPanel.json has: panel-image, panel-video
+      let imageElement = null;
+      let videoElement = null;
+      
+      // Method 1: Find by ID (compiled UIKitML uses IDs)
+      if (document.getElementById) {
+        imageElement = document.getElementById("panel-image");
+        videoElement = document.getElementById("panel-video");
+      }
+      
+      // Method 2: Try querySelector with ID
       if (!imageElement && document.querySelector) {
         imageElement = document.querySelector("#panel-image");
       }
       if (!videoElement && document.querySelector) {
         videoElement = document.querySelector("#panel-video");
       }
-
-      // If still not found, try class-based selection
+      
+      // Method 3: Try class-based selection
       if (!imageElement && document.querySelector) {
         imageElement = document.querySelector(".project-image");
+      }
+      if (!videoElement && document.querySelector) {
+        videoElement = document.querySelector(".project-video");
+      }
+      
+      // Method 4: Try binding attribute (in case source JSON is used)
+      if (!imageElement && document.querySelector) {
+        imageElement = document.querySelector('[binding="dynamicImage"]') || 
+                       document.querySelector('[binding=dynamicImage]');
+      }
+      
+      // Log if image element was found
+      if (imageElement) {
+        console.log(`[PanelContent] ✅ Image element found for entity ${entity.index}:`, {
+          id: imageElement.id,
+          tagName: imageElement.tagName,
+          hasSetProperties: !!imageElement.setProperties,
+          hasSrc: imageElement.src !== undefined,
+          currentSrc: imageElement.src || imageElement.getAttribute?.('src')
+        });
+      } else {
+        console.warn(`[PanelContent] ❌ Image element NOT found for entity ${entity.index}`);
+      }
+      
+      // Video element (if needed)
+      if (!videoElement) {
+        videoElement = document.getElementById?.("panel-video");
+      }
+      if (!videoElement && document.querySelector) {
+        videoElement = document.querySelector("#panel-video");
       }
       if (!videoElement && document.querySelector) {
         videoElement = document.querySelector(".project-video");
@@ -141,9 +467,8 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
             hasGetElementById: !!document.getElementById,
             hasQuerySelector: !!document.querySelector
           });
-          return;
-        }
-        logger.info(`[PanelContent] Setting up video for entity ${entity.index}: ${mediaSrc}`, {
+        } else {
+          logger.info(`[PanelContent] Setting up video for entity ${entity.index}: ${mediaSrc}`, {
           videoElement: videoElement,
           tagName: videoElement.tagName,
           hasStyle: !!videoElement.style,
@@ -393,7 +718,7 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
           }
         } else {
           logger.error(`[PanelContent] Failed to set video src for: ${mediaSrc}`);
-          return; // Don't proceed with hover handlers if src wasn't set
+          // Don't proceed with hover handlers if src wasn't set
         }
 
         // Add error handler for video loading
@@ -578,10 +903,13 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
           panelContainer.__hoverPauseHandler = containerPauseOnLeave;
         }
 
-        if (!videoSet) {
-          logger.warn(`[PanelContent] Could not set video src for entity ${entity.index}`);
+          if (!videoSet) {
+            logger.warn(`[PanelContent] Could not set video src for entity ${entity.index}`);
+          }
         }
-      } else if (imageElement) {
+      }
+      
+      if (!isVideo && imageElement) {
         // Hide video, show image
         if (videoElement) {
           if (videoElement.style) {
@@ -610,25 +938,47 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
         }
 
         // Set image with multiple fallback methods
+        // UIKitML bindings: Try setBinding first, then setProperties, then standard DOM methods
         let imageSet = false;
+        
+        // Method 1: UIKitML binding - set the src property directly
+        // UIKitML bindings work by setting the actual property (src for image elements)
+        // The binding attribute is just metadata, we set the real property
         if (imageElement.setProperties) {
           try {
+            // Set the src property (UIKitML image elements use 'src' property)
             imageElement.setProperties({ src: imageSrc });
             imageSet = true;
-            logger.debug(`[PanelContent] Set image via setProperties: ${imageSrc}`);
+            logger.info(`[PanelContent] ✅ Set image via setProperties (src): ${imageSrc}`);
           } catch (e) {
-            logger.debug(`[PanelContent] setProperties failed: ${e.message}`);
+            logger.warn(`[PanelContent] setProperties (src) failed: ${e.message}`);
           }
         }
+        
+        // Method 4: Direct src property (standard DOM)
         if (!imageSet && imageElement.src !== undefined) {
-          imageElement.src = imageSrc;
-          imageSet = true;
-          logger.debug(`[PanelContent] Set image via src property: ${imageSrc}`);
+          try {
+            imageElement.src = imageSrc;
+            imageSet = true;
+            logger.info(`[PanelContent] ✅ Set image via src property: ${imageSrc}`);
+          } catch (e) {
+            logger.warn(`[PanelContent] src property assignment failed: ${e.message}`);
+          }
         }
+        
+        // Method 5: setAttribute (fallback)
         if (!imageSet && imageElement.setAttribute) {
-          imageElement.setAttribute("src", imageSrc);
-          imageSet = true;
-          logger.debug(`[PanelContent] Set image via setAttribute: ${imageSrc}`);
+          try {
+            imageElement.setAttribute("src", imageSrc);
+            imageSet = true;
+            logger.info(`[PanelContent] ✅ Set image via setAttribute: ${imageSrc}`);
+          } catch (e) {
+            logger.warn(`[PanelContent] setAttribute failed for image: ${e.message}`);
+          }
+        }
+        
+        if (!imageSet) {
+          logger.error(`[PanelContent] ❌ Failed to set image src using any method: ${imageSrc}`);
         }
 
         // Add error listener
@@ -706,12 +1056,13 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
         if (!imageSet) {
           logger.warn(`[PanelContent] Could not set image src for entity ${entity.index}`);
         }
-      } else {
+      }
+      
+      if (!imageElement && !videoElement) {
         logger.warn(`[PanelContent] Media elements not found for entity ${entity.index}`);
       }
 
       logger.debug(`[PanelContent] Content bound for entity ${entity.index}`);
-
     } catch (error) {
       logger.error(`[PanelContent] Error binding content for entity ${entity.index}:`, error);
     }
