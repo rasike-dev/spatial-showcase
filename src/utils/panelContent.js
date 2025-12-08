@@ -26,6 +26,11 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
     hasVideo: !!content.video
   });
   
+  // Get panel dimensions for responsive sizing
+  const panelWidth = content.panelWidth || 1.5; // Default panel width in meters
+  const panelHeight = content.panelHeight || 2.0; // Default panel height in meters
+  console.log(`[PanelContent] Panel dimensions: ${panelWidth}m x ${panelHeight}m`);
+  
   function attemptBinding(attempt = 0) {
     try {
       // Check if entity.index is valid
@@ -113,6 +118,22 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
 
       // Try to set title if element is found (don't block rest of binding if not found)
       if (titleElement) {
+        // Calculate responsive font size based on panel dimensions
+        // Font size scales with panel width (approximately 15% of panel width in meters)
+        const responsiveFontSize = Math.max(1.8, Math.min(3.2, panelWidth * 1.5));
+        
+        // Apply responsive font size if setProperties supports it
+        if (titleElement.setProperties) {
+          try {
+            titleElement.setProperties({ 
+              fontSize: responsiveFontSize 
+            });
+            console.log(`[PanelContent] Applied responsive font size to title: ${responsiveFontSize}`);
+          } catch (e) {
+            console.warn(`[PanelContent] Could not set responsive font size:`, e);
+          }
+        }
+        
         // Use name if available, otherwise use title, otherwise use a default
         const displayText = content.name || content.title || 'Media';
         
@@ -346,6 +367,22 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
         }
 
         if (descriptionElement) {
+          // Calculate responsive font size based on panel dimensions
+          // Font size scales with panel width (approximately 10% of panel width in meters)
+          const responsiveFontSize = Math.max(1.2, Math.min(2.2, panelWidth * 1.0));
+          
+          // Apply responsive font size if setProperties supports it
+          if (descriptionElement.setProperties) {
+            try {
+              descriptionElement.setProperties({ 
+                fontSize: responsiveFontSize 
+              });
+              console.log(`[PanelContent] Applied responsive font size to description: ${responsiveFontSize}`);
+            } catch (e) {
+              console.warn(`[PanelContent] Could not set responsive font size:`, e);
+            }
+          }
+          
           let descSet = false;
           
           // Method 1: UIKitML binding - set the text property directly
@@ -923,6 +960,23 @@ export function bindPanelContent(entity, content, maxAttempts = 200) {
           imageElement.style.display = "block";
         } else if (imageElement.setProperties) {
           imageElement.setProperties({ style: "display: block;" });
+        }
+
+        // Calculate responsive image height based on panel dimensions
+        // Image height should be approximately 50% of panel height
+        const responsiveImageHeight = Math.max(5, Math.min(10, panelHeight * 0.5));
+        
+        // Apply responsive sizing to image
+        if (imageElement.setProperties) {
+          try {
+            imageElement.setProperties({ 
+              height: responsiveImageHeight,
+              maxHeight: responsiveImageHeight
+            });
+            console.log(`[PanelContent] Applied responsive image height: ${responsiveImageHeight}`);
+          } catch (e) {
+            console.warn(`[PanelContent] Could not set responsive image height:`, e);
+          }
         }
 
         const imageSrc = mediaSrc || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3C/svg%3E";

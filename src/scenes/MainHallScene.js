@@ -139,9 +139,10 @@ export class MainHallScene extends BaseScene {
     this.isInitializing = true;
 
     try {
-      // Get template-specific layout
-      const layout = getTemplateLayout(templateId);
-      console.log(`[MainHallScene] Layout config:`, layout);
+      // Get template-specific layout with optimal sizing based on panel count and viewport
+      const panelCount = panels.length;
+      const layout = getTemplateLayout(templateId, panelCount);
+      console.log(`[MainHallScene] Layout config (optimized for ${panelCount} panels):`, layout);
       
       // Validate layout
       if (!layout) {
@@ -285,6 +286,10 @@ export class MainHallScene extends BaseScene {
           // Add a small delay before binding content to ensure PanelUI is fully initialized
           await new Promise(resolve => setTimeout(resolve, 100));
           
+          // Get panel dimensions from layout for responsive sizing
+          const panelWidth = maxWidth || 1.5;
+          const panelHeight = maxHeight || 2.0;
+          
           bindPanelContent(entity, {
             name: panel.name,
             title: panel.title,
@@ -294,6 +299,8 @@ export class MainHallScene extends BaseScene {
             media: panel.media || [],
             panelId: panel.id,
             portfolioId: portfolioId,
+            panelWidth: panelWidth, // Pass panel dimensions for responsive sizing
+            panelHeight: panelHeight,
           });
           
           console.log(`[MainHallScene] Panel ${index} content bound successfully`);

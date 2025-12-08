@@ -2,40 +2,63 @@
   .project-panel {
     align-items: flex-start;
     padding: 1.2;
-    width: 16;
+    width: 100%;
     display: flex;
     flex-direction: column;
     background-color: #1a1a1a;
     border-radius: 1.2;
     gap: 0.8;
+    /* Ensure panel uses available space and scales */
+    min-height: 0;
+    box-sizing: border-box;
   }
 
   .project-image {
     width: 100%;
-    height: 9;
+    /* Responsive height: scales with panel container, maintains aspect ratio */
+    height: auto;
+    min-height: 5;
+    max-height: 10;
     object-fit: cover;
     border-radius: 0.8;
+    /* Ensure image scales proportionally with container */
+    flex-shrink: 0;
   }
 
   .project-video {
     width: 100%;
-    height: 9;
+    /* Responsive height: scales with panel container, maintains aspect ratio */
+    height: auto;
+    min-height: 5;
+    max-height: 10;
     object-fit: contain;
     border-radius: 0.8;
+    /* Ensure video scales proportionally with container */
+    flex-shrink: 0;
   }
 
   .project-title {
-    font-size: 2.6;
+    /* Responsive font size: will be adjusted dynamically based on panel size */
+    font-size: 2.4;
     color: #ffffff;
     text-align: left;
     font-weight: bold;
+    /* Allow text to wrap */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    flex-shrink: 1;
   }
 
   .project-description {
-    font-size: 1.8;
+    /* Responsive font size: will be adjusted dynamically based on panel size */
+    font-size: 1.6;
     color: #cccccc;
     text-align: left;
     line-height: 1.4;
+    /* Allow text to wrap */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    flex-shrink: 1;
   }
 </style>
 <div class="project-panel">
