@@ -1,4 +1,4 @@
-import { PanelUI } from "@iwsdk/core";
+import { PanelUI, PanelDocument } from "@iwsdk/core";
 import { bindPanelContent } from "../utils/panelContent.js";
 import { bindPanelButton } from "../utils/panelBindings.js";
 import { CAMERA } from "../constants/sceneConstants.js";
@@ -117,32 +117,339 @@ export class ProjectDetailScene extends BaseScene {
   }
 
   createProjectHeader() {
+    // Make header panel smaller compared to media panels
+    // Position it above the media panels to avoid overlapping
+    const headerWidth = 0.8;  // Smaller width
+    const headerHeight = 0.5; // Smaller height - compact header
+    
     const entity = this.world.createTransformEntity().addComponent(PanelUI, {
       config: "/ui/projectPanel.json",
-      maxWidth: 1.2,
-      maxHeight: 0.8
+      maxWidth: headerWidth,
+      maxHeight: headerHeight
     });
 
-    entity.object3D.position.set(0, 2.0, -2.5);
+    // Position header above media panels (media panels are typically at y=1.6, z=-3.0)
+    // Place header higher up and slightly closer to avoid overlap
+    entity.object3D.position.set(0, 2.4, -2.2); // Higher Y, closer Z
     entity.object3D.lookAt(0, 1.6, 0);
 
     this.trackEntity(entity);
 
-    // Bind project room header content
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const mediaCount = this.projectData.media?.length || 0;
-        const description = this.projectData.description 
-          ? `${this.projectData.description}\n\n${mediaCount} panel${mediaCount !== 1 ? 's' : ''} in this room`
-          : `${mediaCount} panel${mediaCount !== 1 ? 's' : ''} in this room`;
+    // Bind project room header content with smaller font sizes
+    setTimeout(() => {
+      try {
+        const document = PanelDocument.data.document[entity.index];
+        if (!document) {
+          // Retry if document not ready
+          setTimeout(() => this.bindHeaderContent(entity, headerWidth, headerHeight), 200);
+          return;
+        }
         
-        bindPanelContent(entity, {
-          title: this.projectData.title || "Project Room",
-          description: description,
-          image: null, // No image in header
+        this.bindHeaderContent(entity, headerWidth, headerHeight);
+      } catch (error) {
+        logger.error("[ProjectDetailScene] Error binding header content:", error);
+        console.error("[ProjectDetailScene] ❌ Error binding header content:", error);
+      }
+    }, 300);
+  }
+
+  /**
+   * Bind header content with proper text wrapping and smaller font sizes
+   * Uses the same retry mechanism as bindPanelContent for UIKitML compatibility
+   * @private
+   */
+  bindHeaderContent(entity, panelWidth, panelHeight, maxAttempts = 200) {
+    const attemptBinding = (attempt = 0) => {
+      try {
+        // Check if entity.index is valid
+        if (entity.index === undefined || entity.index === null) {
+          if (attempt < maxAttempts) {
+            requestAnimationFrame(() => attemptBinding(attempt + 1));
+          } else {
+            logger.warn(`[ProjectDetailScene] Entity index not available after ${maxAttempts} attempts`);
+          }
+          return;
+        }
+
+        const document = PanelDocument.data.document[entity.index];
+        if (!document) {
+          if (attempt < maxAttempts) {
+            requestAnimationFrame(() => attemptBinding(attempt + 1));
+          } else {
+            logger.warn(`[ProjectDetailScene] Document not ready for entity ${entity.index} after ${maxAttempts} attempts`);
+          }
+          return;
+        }
+
+        // Add a small delay to ensure UIKitML has fully rendered
+        if (attempt === 0) {
+          setTimeout(() => {
+            attemptBinding(attempt + 1);
+          }, 100);
+          return;
+        }
+
+        console.log("[ProjectDetailScene] ========== BINDING HEADER CONTENT ==========");
+        console.log("[ProjectDetailScene] Entity index:", entity.index);
+        console.log("[ProjectDetailScene] Document available:", !!document);
+        console.log("[ProjectDetailScene] Attempt:", attempt);
+
+        // Get title and description elements (try multiple methods like bindPanelContent)
+        let titleElement = null;
+        if (document.getElementById) {
+          titleElement = document.getElementById("panel-title");
+        }
+        if (!titleElement && document.querySelector) {
+          titleElement = document.querySelector("#panel-title");
+        }
+        if (!titleElement && document.querySelector) {
+          titleElement = document.querySelector(".project-title");
+        }
+
+        let descElement = null;
+        if (document.getElementById) {
+          descElement = document.getElementById("panel-description");
+        }
+        if (!descElement && document.querySelector) {
+          descElement = document.querySelector("#panel-description");
+        }
+        if (!descElement && document.querySelector) {
+          descElement = document.querySelector(".project-description");
+        }
+
+        const imageElement = document.getElementById("panel-image");
+        const videoElement = document.getElementById("panel-video");
+
+        // Hide image/video for header (text only)
+        if (imageElement && imageElement.style) {
+          try {
+            imageElement.style.display = "none";
+          } catch (e) {
+            logger.warn("[ProjectDetailScene] Could not hide image element:", e);
+          }
+        }
+        if (videoElement && videoElement.style) {
+          try {
+            videoElement.style.display = "none";
+          } catch (e) {
+            logger.warn("[ProjectDetailScene] Could not hide video element:", e);
+          }
+        }
+
+        // Set title - only user-provided title
+        if (titleElement) {
+          const title = this.projectData.title || "Project Room";
+          console.log("[ProjectDetailScene] Setting title:", title);
+          console.log("[ProjectDetailScene] Title element found:", {
+            id: titleElement.id,
+            tagName: titleElement.tagName,
+            hasSetProperties: !!titleElement.setProperties,
+            hasTextContent: titleElement.textContent !== undefined
+          });
+
+          let titleSet = false;
+
+          // Method 1: UIKitML setProperties (preferred)
+          if (titleElement.setProperties) {
+            try {
+              titleElement.setProperties({ text: title });
+              titleSet = true;
+              logger.info(`[ProjectDetailScene] ✅ Title set via setProperties: "${title}"`);
+              console.log(`[ProjectDetailScene] ✅ Title setProperties called`);
+            } catch (e) {
+              logger.warn(`[ProjectDetailScene] setProperties failed:`, e);
+            }
+          }
+
+          // Method 2: textContent
+          if (titleElement.textContent !== undefined) {
+            try {
+              titleElement.textContent = title;
+              if (titleElement.textContent === title || titleElement.textContent.includes(title)) {
+                titleSet = true;
+                logger.info(`[ProjectDetailScene] ✅ Title set via textContent: "${title}"`);
+                console.log(`[ProjectDetailScene] ✅ Title textContent set`);
+              }
+            } catch (e) {
+              logger.warn(`[ProjectDetailScene] textContent failed:`, e);
+            }
+          }
+
+          // Method 3: innerText
+          if (titleElement.innerText !== undefined) {
+            try {
+              titleElement.innerText = title;
+              if (titleElement.innerText === title || titleElement.innerText.includes(title)) {
+                titleSet = true;
+                logger.info(`[ProjectDetailScene] ✅ Title set via innerText: "${title}"`);
+                console.log(`[ProjectDetailScene] ✅ Title innerText set`);
+              }
+            } catch (e) {
+              logger.warn(`[ProjectDetailScene] innerText failed:`, e);
+            }
+          }
+
+          // Method 4: innerHTML as fallback
+          if (!titleSet && titleElement.innerHTML !== undefined) {
+            try {
+              titleElement.innerHTML = title;
+              titleSet = true;
+              logger.info(`[ProjectDetailScene] ✅ Title set via innerHTML: "${title}"`);
+            } catch (e) {
+              logger.warn(`[ProjectDetailScene] innerHTML failed:`, e);
+            }
+          }
+
+          // Apply smaller font size and text wrapping
+          const fontSize = Math.max(1.2, panelWidth * 1.5);
+          if (titleElement.setProperties) {
+            try {
+              titleElement.setProperties({ fontSize: fontSize });
+            } catch (e) {
+              if (titleElement.style) {
+                titleElement.style.fontSize = `${fontSize}px`;
+              }
+            }
+          } else if (titleElement.style) {
+            titleElement.style.fontSize = `${fontSize}px`;
+          }
+
+          if (titleElement.style) {
+            titleElement.style.wordWrap = "break-word";
+            titleElement.style.overflowWrap = "break-word";
+            titleElement.style.whiteSpace = "normal";
+            titleElement.style.maxWidth = "100%";
+          }
+
+          if (!titleSet) {
+            logger.warn(`[ProjectDetailScene] ⚠️ Could not set title text after all methods`);
+            // Retry if not set
+            if (attempt < maxAttempts) {
+              requestAnimationFrame(() => attemptBinding(attempt + 1));
+              return;
+            }
+          }
+        } else {
+          logger.warn(`[ProjectDetailScene] ❌ Title element not found (attempt ${attempt})`);
+          if (attempt < maxAttempts) {
+            requestAnimationFrame(() => attemptBinding(attempt + 1));
+            return;
+          }
+        }
+
+        // Set description - only user-provided description (no media count)
+        if (descElement) {
+          const description = this.projectData.description || "";
+          console.log("[ProjectDetailScene] Setting description:", description.substring(0, 50) + "...");
+          
+          let descSet = false;
+
+          // Method 1: UIKitML setProperties (preferred)
+          if (descElement.setProperties) {
+            try {
+              descElement.setProperties({ text: description });
+              descSet = true;
+              logger.info(`[ProjectDetailScene] ✅ Description set via setProperties`);
+              console.log(`[ProjectDetailScene] ✅ Description setProperties called`);
+            } catch (e) {
+              logger.warn(`[ProjectDetailScene] setProperties failed:`, e);
+            }
+          }
+
+          // Method 2: textContent
+          if (descElement.textContent !== undefined) {
+            try {
+              descElement.textContent = description;
+              if (descElement.textContent === description || descElement.textContent.includes(description)) {
+                descSet = true;
+                logger.info(`[ProjectDetailScene] ✅ Description set via textContent`);
+                console.log(`[ProjectDetailScene] ✅ Description textContent set`);
+              }
+            } catch (e) {
+              logger.warn(`[ProjectDetailScene] textContent failed:`, e);
+            }
+          }
+
+          // Method 3: innerText
+          if (descElement.innerText !== undefined) {
+            try {
+              descElement.innerText = description;
+              if (descElement.innerText === description || descElement.innerText.includes(description)) {
+                descSet = true;
+                logger.info(`[ProjectDetailScene] ✅ Description set via innerText`);
+                console.log(`[ProjectDetailScene] ✅ Description innerText set`);
+              }
+            } catch (e) {
+              logger.warn(`[ProjectDetailScene] innerText failed:`, e);
+            }
+          }
+
+          // Method 4: innerHTML as fallback
+          if (!descSet && descElement.innerHTML !== undefined) {
+            try {
+              descElement.innerHTML = description;
+              descSet = true;
+              logger.info(`[ProjectDetailScene] ✅ Description set via innerHTML`);
+            } catch (e) {
+              logger.warn(`[ProjectDetailScene] innerHTML failed:`, e);
+            }
+          }
+
+          // Apply smaller font size and text wrapping
+          const fontSize = Math.max(1.0, panelWidth * 1.2);
+          if (descElement.setProperties) {
+            try {
+              descElement.setProperties({ fontSize: fontSize });
+            } catch (e) {
+              if (descElement.style) {
+                descElement.style.fontSize = `${fontSize}px`;
+              }
+            }
+          } else if (descElement.style) {
+            descElement.style.fontSize = `${fontSize}px`;
+          }
+
+          if (descElement.style) {
+            descElement.style.wordWrap = "break-word";
+            descElement.style.overflowWrap = "break-word";
+            descElement.style.whiteSpace = "normal";
+            descElement.style.maxWidth = "100%";
+            descElement.style.lineHeight = "1.3";
+          }
+
+          if (!descSet && description) {
+            logger.warn(`[ProjectDetailScene] ⚠️ Could not set description text after all methods`);
+          }
+        } else if (this.projectData.description) {
+          logger.warn(`[ProjectDetailScene] ⚠️ Description element not found but description exists`);
+          // Retry if description exists but element not found
+          if (attempt < maxAttempts) {
+            requestAnimationFrame(() => attemptBinding(attempt + 1));
+            return;
+          }
+        }
+
+        logger.info("[ProjectDetailScene] Header content binding completed");
+        console.log("[ProjectDetailScene] ✅ Header content bound:", {
+          title: this.projectData.title,
+          description: this.projectData.description?.substring(0, 50) + "...",
+          panelSize: `${panelWidth}x${panelHeight}`,
+          titleElementFound: !!titleElement,
+          descElementFound: !!descElement,
+          attempt: attempt
         });
-      });
-    });
+      } catch (error) {
+        logger.error("[ProjectDetailScene] Error in bindHeaderContent:", error);
+        console.error("[ProjectDetailScene] ❌ Error in bindHeaderContent:", error);
+        // Retry on error
+        if (attempt < maxAttempts) {
+          requestAnimationFrame(() => attemptBinding(attempt + 1));
+        }
+      }
+    };
+
+    // Start the retry mechanism
+    attemptBinding(0);
   }
 
   /**
@@ -336,8 +643,20 @@ export class ProjectDetailScene extends BaseScene {
         throw new Error(`Invalid layout for template: ${templateId}`);
       }
       
-      const positions = calculatePanelPositions(panels, layout);
-      console.log(`[ProjectDetailScene] Calculated positions for ${panels.length} panels:`, positions);
+      // Adjust panel positions to account for header panel above
+      // Header is at y=2.4, so media panels should be lower to avoid overlap
+      const headerHeight = 0.5;
+      const headerSpacing = 0.3; // Space between header and media panels
+      const adjustedLayout = {
+        ...layout,
+        panelPosition: {
+          ...layout.panelPosition,
+          y: Math.min(layout.panelPosition.y, 1.4) // Lower Y to avoid header overlap
+        }
+      };
+      
+      const positions = calculatePanelPositions(panels, adjustedLayout);
+      console.log(`[ProjectDetailScene] Calculated positions for ${panels.length} panels (adjusted for header):`, positions);
 
       // Validate positions
       if (!positions || positions.length === 0) {
@@ -467,38 +786,49 @@ export class ProjectDetailScene extends BaseScene {
 
         this.trackEntity(entity);
 
-        // Bind content with delay to ensure PanelUI is ready
-        setTimeout(async () => {
-          try {
-            console.log(`[ProjectDetailScene] ========== BINDING CONTENT FOR PANEL ${index} ==========`);
-            console.log(`[ProjectDetailScene] Panel data:`, {
-              id: panel.id,
-              name: panel.name,
-              title: panel.title,
-              description: panel.description,
-              image: panel.image,
-              video: panel.video
-            });
-            
-            bindPanelContent(entity, {
-              name: panel.name,
-              title: panel.title,
-              description: panel.description,
-              image: panel.image,
-              video: panel.video,
-              media: panel.media,
-              panelId: panel.id,
-              portfolioId: window.portfolioId,
-              panelWidth: maxWidth,
-              panelHeight: maxHeight,
-            });
-            
-            console.log(`[ProjectDetailScene] ✅ Content binding initiated for panel ${index}`);
-          } catch (error) {
-            console.error(`[ProjectDetailScene] ❌ Error binding content for panel ${index}:`, error);
-            logger.error(`[ProjectDetailScene] Error binding content for panel ${index}:`, error);
-          }
-        }, 200 + (index * 50)); // Stagger delays to prevent WebGL issues
+        // Bind panel content (with delay to ensure PanelUI is ready) - same approach as MainHallScene
+        try {
+          const portfolioId = this.world.portfolioData?.portfolio?.id || window.portfolioId || null;
+          
+          // Add a small delay before binding content to ensure PanelUI is fully initialized
+          // Use await Promise to ensure proper timing (same as MainHallScene)
+          await new Promise(resolve => setTimeout(resolve, 100 + (index * 50)));
+          
+          // Get panel dimensions from layout for responsive sizing
+          const panelWidth = maxWidth || 1.5;
+          const panelHeight = maxHeight || 2.0;
+          
+          console.log(`[ProjectDetailScene] ========== BINDING CONTENT FOR PANEL ${index} ==========`);
+          console.log(`[ProjectDetailScene] Entity index:`, entity.index);
+          console.log(`[ProjectDetailScene] Panel data:`, {
+            id: panel.id,
+            name: panel.name,
+            title: panel.title,
+            description: panel.description,
+            image: panel.image,
+            video: panel.video,
+            hasMedia: !!panel.media && panel.media.length > 0
+          });
+          
+          bindPanelContent(entity, {
+            name: panel.name,
+            title: panel.title,
+            description: panel.description,
+            image: panel.image,
+            video: panel.video,
+            media: panel.media || [],
+            panelId: panel.id,
+            portfolioId: portfolioId,
+            panelWidth: panelWidth, // Pass panel dimensions for responsive sizing
+            panelHeight: panelHeight,
+          });
+          
+          console.log(`[ProjectDetailScene] ✅ Panel ${index} content bound successfully`);
+          logger.info(`[ProjectDetailScene] Panel ${index} content bound successfully`);
+        } catch (error) {
+          console.error(`[ProjectDetailScene] ❌ Error binding content for panel ${index}:`, error);
+          logger.error(`[ProjectDetailScene] Error binding content for panel ${index}:`, error);
+        }
 
         return entity;
       } catch (error) {
