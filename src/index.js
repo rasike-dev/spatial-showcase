@@ -2,6 +2,11 @@ import { SessionMode, World } from "@iwsdk/core";
 
 import { startSpatialShowcase } from "./app/startSpatialShowcase.js";
 import { logger } from "./utils/logger.js";
+import { setupIWSDKErrorHandling } from "./utils/IWSDKErrorHandler.js";
+
+// Initialize IWSDK error handling BEFORE creating World
+// This suppresses the known WebGL renderer bug in IWSDK 0.2.0
+setupIWSDKErrorHandling();
 
 // Immediate console log to verify script is loading
 console.log('[VR App] Script loaded, URL:', window.location.href);
@@ -19,7 +24,25 @@ if (window.location.hash) {
 }
 
 // Global error handling for debugging
+// Note: IWSDK error handler should suppress known WebGL errors before this runs
 window.addEventListener("error", (event) => {
+  const error = event.error;
+  const message = error?.message || event.message;
+  
+  // Skip logging if this is the known IWSDK WebGL bug (should be suppressed by IWSDKErrorHandler)
+  if (message && (
+    message.includes('Cannot read properties of undefined (reading \'test\')') ||
+    (message.includes('projectObject') && message.includes('@iwsdk'))
+  )) {
+    // This error should already be suppressed by IWSDKErrorHandler
+    // Only log if suppression didn't work (for debugging)
+    if (!window._iwsdkErrorSuppressed) {
+      logger.warn("[GlobalError] IWSDK WebGL error detected but not suppressed - check IWSDKErrorHandler");
+    }
+    return; // Don't log this error
+  }
+  
+  // Log all other errors normally
   logger.error("[GlobalError]", {
     message: event.message,
     filename: event.filename,

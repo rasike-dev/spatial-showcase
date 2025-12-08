@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS media (
   url VARCHAR(500) NOT NULL,
   thumbnail_url VARCHAR(500),
   filename VARCHAR(255),
+  name VARCHAR(255), -- Display name for the media item (shown in lists/admin)
+  title VARCHAR(255), -- Title to display below the media in VR panels
   file_size INTEGER,
   mime_type VARCHAR(100),
   metadata JSONB DEFAULT '{}',

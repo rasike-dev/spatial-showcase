@@ -6,7 +6,31 @@ import { handleApiError } from './errorHandler.js';
 import { logger } from './logger.js';
 import { getCache, setCache } from './cache.js';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Determine API URL based on environment
+// For development: Use HTTPS for localhost to avoid mixed content warnings
+// For production: Use proper HTTPS URL
+function getApiBaseUrl() {
+  // Check if we have a configured API URL
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Auto-detect based on current page protocol
+  const isSecure = window.location.protocol === 'https:';
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  if (isLocalhost) {
+    // For localhost development, always use HTTP since backend doesn't support HTTPS
+    // This will cause mixed content warnings but allows functionality to work
+    return 'http://localhost:3000/api';
+  }
+  
+  // For production, always use HTTPS
+  return 'https://api.your-domain.com/api';
+}
+
+const API_BASE_URL = getApiBaseUrl();
+console.log('[API] Using API base URL:', API_BASE_URL);
 
 /**
  * Fetch portfolio by ID or share token (with caching)
@@ -180,16 +204,23 @@ export async function trackEvent(portfolioId, eventType, eventData = {}) {
 }
 
 /**
- * Get full media URL
+ * Get full media URL with proper protocol handling
  */
 export function getMediaUrl(url) {
   if (!url) return null;
   if (url.startsWith('http')) return url;
-  // Backend serves media at /api/media/uploads/filename
-  const baseUrl = API_BASE_URL.replace('/api', '');
+  
+  // For localhost development, explicitly use HTTP to avoid mixed content auto-upgrade
+  const baseUrl = 'http://localhost:3000';
+  
   if (url.startsWith('/uploads/')) {
-    return `${baseUrl}/api/media${url}`;
+    const mediaUrl = `${baseUrl}/api/media${url}`;
+    console.log(`[API] Generated media URL: ${mediaUrl} from ${url}`);
+    return mediaUrl;
   }
-  return `${baseUrl}${url}`;
+  
+  const mediaUrl = `${baseUrl}${url}`;
+  console.log(`[API] Generated media URL: ${mediaUrl} from ${url}`);
+  return mediaUrl;
 }
 

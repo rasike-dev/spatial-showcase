@@ -27,6 +27,12 @@ export default defineConfig({
     open: true,
     https: true, // mkcert enables HTTPS
     strictPort: true,
+    // Disable caching in development to ensure latest code is loaded
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
   },
   preview: {
     host: '0.0.0.0',
@@ -37,7 +43,14 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: process.env.NODE_ENV !== 'production',
     target: 'esnext',
-    rollupOptions: { input: './index.html' }
+    rollupOptions: {
+      input: './index.html',
+      output: {
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]'
+      }
+    }
   },
   esbuild: { target: 'esnext' },
   optimizeDeps: {

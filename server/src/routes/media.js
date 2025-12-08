@@ -53,7 +53,7 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const { project_id, portfolio_id, type, order_index } = req.body;
+    const { project_id, portfolio_id, type, order_index, name, title } = req.body;
 
     if (!type || !(project_id || portfolio_id)) {
       // Clean up uploaded file if validation fails
@@ -102,10 +102,14 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
     // Construct URL (in production, this would be a CDN URL)
     const fileUrl = `/uploads/${req.file.filename}`;
 
+    // Use provided name/title, or derive from filename
+    const mediaName = name || req.file.originalname;
+    const mediaTitle = title || req.file.originalname.replace(/\.[^/.]+$/, ''); // Remove extension
+
     const result = await query(
-      `INSERT INTO media (project_id, portfolio_id, type, url, filename, file_size, mime_type, order_index)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, project_id, portfolio_id, type, url, filename, file_size, mime_type, order_index, created_at`,
+      `INSERT INTO media (project_id, portfolio_id, type, url, filename, file_size, mime_type, order_index, name, title)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, project_id, portfolio_id, type, url, filename, file_size, mime_type, order_index, name, title, created_at`,
       [
         project_id || null,
         portfolio_id || null,
@@ -114,15 +118,40 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
         req.file.originalname,
         req.file.size,
         req.file.mimetype,
-        order_index || 0
+        order_index || 0,
+        mediaName,
+        mediaTitle
       ]
     );
 
     res.status(201).json({ media: result.rows[0] });
   } catch (error) {
-    if (req.file) {
-      fs.unlinkSync(req.file.path);
+    console.error('[Media Route] Upload error:', error);
+    console.error('[Media Route] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      constraint: error.constraint,
+      detail: error.detail
+    });
+    
+    // Clean up uploaded file if it exists
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (unlinkError) {
+        console.error('[Media Route] Failed to delete uploaded file:', unlinkError);
+      }
     }
+    
+    // Provide more specific error messages
+    if (error.code === '23503') {
+      return res.status(400).json({ error: 'Invalid project_id or portfolio_id' });
+    }
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'Media with this identifier already exists' });
+    }
+    
     next(error);
   }
 });
@@ -148,6 +177,73 @@ router.get('/', async (req, res, next) => {
     }
 
     res.json({ media: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update media (name, title, order_index)
+router.put('/:id', authenticateToken, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, title, order_index } = req.body;
+
+    // Get media info and verify ownership
+    const mediaCheck = await query(
+      `SELECT m.*, p.user_id as portfolio_user_id
+       FROM media m
+       LEFT JOIN portfolios p ON m.portfolio_id = p.id
+       LEFT JOIN projects pr ON m.project_id = pr.id
+       LEFT JOIN portfolios p2 ON pr.portfolio_id = p2.id
+       WHERE m.id = $1`,
+      [id]
+    );
+
+    if (mediaCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Media not found' });
+    }
+
+    const media = mediaCheck.rows[0];
+    const ownerId = media.portfolio_user_id || media.user_id;
+
+    if (ownerId !== req.user.userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Build update query dynamically
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (name !== undefined) {
+      updates.push(`name = $${paramCount++}`);
+      values.push(name);
+    }
+
+    if (title !== undefined) {
+      updates.push(`title = $${paramCount++}`);
+      values.push(title);
+    }
+
+    if (order_index !== undefined) {
+      updates.push(`order_index = $${paramCount++}`);
+      values.push(order_index);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(id); // Add id for WHERE clause
+
+    const result = await query(
+      `UPDATE media SET ${updates.join(', ')}
+       WHERE id = $${paramCount}
+       RETURNING id, project_id, portfolio_id, type, url, filename, name, title, file_size, mime_type, order_index, created_at`,
+      values
+    );
+
+    res.json({ media: result.rows[0] });
   } catch (error) {
     next(error);
   }

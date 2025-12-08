@@ -1,9 +1,10 @@
 import { SceneManager } from "../systems/SceneManager.js";
 import { MainHallScene } from "../scenes/MainHallScene.js";
-import { loadPortfolio, portfolioToSceneData } from "./portfolioLoader.js";
+import { loadPortfolio, getLoadingHandler } from "./portfolioLoader.js";
 import { logger } from "../utils/logger.js";
 import { handleApiError } from "../utils/errorHandler.js";
 import { endSession } from "../utils/analytics.js";
+import { setupIWSDKErrorHandling } from "../utils/IWSDKErrorHandler.js";
 
 /**
  * Start the spatial showcase app
@@ -12,7 +13,14 @@ import { endSession } from "../utils/analytics.js";
  * @param {string} options.portfolioId - Portfolio ID or share token to load
  */
 export async function startSpatialShowcase(world, options = {}) {
+  // Set up IWSDK error handling first
+  setupIWSDKErrorHandling();
+  
   const sceneManager = new SceneManager(world);
+  
+  // Set up loading state handling
+  const loadingHandler = getLoadingHandler();
+  setupLoadingStateUI(loadingHandler);
 
   // IMPORTANT: Check URL immediately on load, before any redirects can happen
   // This ensures we capture the hash fragment even if there's an HTTP->HTTPS redirect
@@ -70,7 +78,13 @@ export async function startSpatialShowcase(world, options = {}) {
       pathname: window.location.pathname
     });
     logger.info('[startSpatialShowcase] No portfolio ID, using default content');
-    sceneManager.loadScene(MainHallScene);
+    try {
+      sceneManager.loadScene(MainHallScene);
+    } catch (error) {
+      console.error('[startSpatialShowcase] Error loading default scene:', error);
+      logger.error('[startSpatialShowcase] Error loading default scene:', error);
+      // Scene should still initialize even if there's an error
+    }
   }
 }
 
@@ -83,16 +97,14 @@ async function loadPortfolioAndStartScene(world, sceneManager, portfolioId) {
     console.log('[startSpatialShowcase] Portfolio ID/Token:', portfolioId);
     console.log('[startSpatialShowcase] Current URL:', window.location.href);
     
-    // Load portfolio data
-    const portfolioData = await loadPortfolio(portfolioId);
-    console.log('[startSpatialShowcase] Portfolio data loaded:', portfolioData);
+    // Load portfolio data (loadPortfolio now returns scene data directly)
+    const sceneData = await loadPortfolio(portfolioId);
+    console.log('[startSpatialShowcase] Scene data loaded:', sceneData);
     
-    if (!portfolioData || !portfolioData.portfolio) {
+    if (!sceneData || !sceneData.portfolio) {
       throw new Error('Portfolio data is invalid or missing');
     }
     
-    const sceneData = portfolioToSceneData(portfolioData);
-    console.log('[startSpatialShowcase] Scene data converted:', sceneData);
     console.log('[startSpatialShowcase] Scene data has panels:', sceneData.panels?.length || 0);
     console.log('[startSpatialShowcase] Scene data has projects:', sceneData.projects?.length || 0);
 
@@ -100,8 +112,8 @@ async function loadPortfolioAndStartScene(world, sceneManager, portfolioId) {
     world.portfolioData = sceneData;
     
     // Also store the full portfolio data structure for navigation
-    world.portfolioData.portfolio = portfolioData.portfolio;
-    world.portfolioData.projects = portfolioData.projects;
+    world.portfolioData.portfolio = sceneData.portfolio;
+    world.portfolioData.projects = sceneData.projects;
 
     logger.info('[startSpatialShowcase] Portfolio loaded, starting scene with data:', sceneData);
 
@@ -226,4 +238,120 @@ function getPortfolioIdFromURL() {
   console.log('[getPortfolioIdFromURL] ❌ No portfolio ID/token found in URL');
   logger.info('[getPortfolioIdFromURL] No portfolio ID/token found in URL');
   return null;
+}
+
+/**
+ * Set up loading state UI with proper user feedback
+ * @param {PortfolioLoadingHandler} loadingHandler
+ */
+function setupLoadingStateUI(loadingHandler) {
+  // Create loading overlay if it doesn't exist
+  let loadingOverlay = document.getElementById('loading-overlay');
+  if (!loadingOverlay) {
+    loadingOverlay = document.createElement('div');
+    loadingOverlay.id = 'loading-overlay';
+    loadingOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 10000;
+      font-family: Arial, sans-serif;
+    `;
+    
+    loadingOverlay.innerHTML = `
+      <div style="text-align: center;">
+        <div id="loading-spinner" style="
+          border: 4px solid #333;
+          border-top: 4px solid #6366f1;
+          border-radius: 50%;
+          width: 40px;
+          height: 40px;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 20px;
+        "></div>
+        <div id="loading-text" style="font-size: 18px; margin-bottom: 10px;">Loading...</div>
+        <div id="loading-progress" style="font-size: 14px; opacity: 0.8;">Initializing...</div>
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+    `;
+    
+    document.body.appendChild(loadingOverlay);
+  }
+  
+  const loadingText = document.getElementById('loading-text');
+  const loadingProgress = document.getElementById('loading-progress');
+  
+  // Set up loading state callback
+  loadingHandler.onLoadingStateChange((state) => {
+    switch (state.state) {
+      case 'loading':
+        loadingOverlay.style.display = 'flex';
+        loadingText.textContent = 'Loading Portfolio...';
+        loadingProgress.textContent = `${state.progress}% - ${state.operation}`;
+        break;
+        
+      case 'success':
+        loadingOverlay.style.display = 'none';
+        break;
+        
+      case 'error':
+        loadingText.textContent = 'Loading Failed';
+        loadingProgress.textContent = state.operation;
+        // Hide after a delay to show error message
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 3000);
+        break;
+        
+      default:
+        loadingOverlay.style.display = 'none';
+    }
+  });
+  
+  // Set up error callback
+  loadingHandler.onError((errorInfo) => {
+    logger.error('[startSpatialShowcase] Portfolio loading error:', errorInfo);
+    
+    // Show user-friendly error message
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #dc3545;
+      color: white;
+      padding: 15px;
+      border-radius: 5px;
+      z-index: 10001;
+      max-width: 300px;
+      font-family: Arial, sans-serif;
+    `;
+    
+    errorDiv.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 5px;">Portfolio Loading Error</div>
+      <div style="font-size: 14px;">${errorInfo.message}</div>
+    `;
+    
+    document.body.appendChild(errorDiv);
+    
+    // Auto-remove error after 10 seconds
+    setTimeout(() => {
+      if (errorDiv.parentNode) {
+        errorDiv.parentNode.removeChild(errorDiv);
+      }
+    }, 10000);
+  });
 }

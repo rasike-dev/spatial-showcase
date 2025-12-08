@@ -6,6 +6,7 @@ import { logger } from "../utils/logger.js";
 import { BaseScene } from "./BaseScene.js";
 import { getShowcaseScene } from "../content/showcaseContent.js";
 import { getTemplateLayout, calculatePanelPositions, applyTemplateColors } from "../utils/templateRenderer.js";
+import { SimplePanelEntityManager } from "../utils/SimplePanelEntityManager.js";
 
 /**
  * Main hall scene that acts as the navigation hub for all other scenes.
@@ -14,6 +15,8 @@ export class MainHallScene extends BaseScene {
   constructor(world, sceneManager) {
     super(world, sceneManager);
     this.portfolioData = null; // Store portfolio data for use in renderPanels
+    this.panelEntityManager = new SimplePanelEntityManager(world);
+    this.isInitializing = false;
   }
 
   /**
@@ -21,7 +24,7 @@ export class MainHallScene extends BaseScene {
    * @param {Object} options - Optional scene data
    * @param {Object} options.portfolioData - Portfolio data from API
    */
-  init(options = {}) {
+  async init(options = {}) {
     // Set camera position on entering scene
     this.setupCamera();
 
@@ -50,7 +53,22 @@ export class MainHallScene extends BaseScene {
 
       // Render Main Hall panels (all panels for the first project)
       const templateId = this.portfolioData.template || 'creative-portfolio';
-      this.renderPanels(panels, templateId);
+      console.log('[MainHallScene] ========== STARTING PANEL RENDERING ==========');
+      console.log('[MainHallScene] Template ID:', templateId);
+      console.log('[MainHallScene] Panels to render:', panels.length);
+      console.log('[MainHallScene] Panel details:', panels);
+      logger.info(`[MainHallScene] Starting panel rendering: ${panels.length} panels with template ${templateId}`);
+      
+      // CRITICAL: Await panel rendering to ensure panels are created before scene initialization completes
+      try {
+        await this.renderPanels(panels, templateId);
+        console.log('[MainHallScene] ========== PANEL RENDERING COMPLETED ==========');
+        logger.info(`[MainHallScene] Panel rendering completed successfully`);
+      } catch (error) {
+        console.error('[MainHallScene] Error during panel rendering:', error);
+        logger.error(`[MainHallScene] Error during panel rendering:`, error);
+        // Continue even if panel rendering fails
+      }
       
       // Render navigation buttons to other project rooms/levels
       if (otherProjects.length > 0) {
@@ -58,18 +76,31 @@ export class MainHallScene extends BaseScene {
       }
     } else {
       // Fallback to default content
-      this.sceneData = getShowcaseScene("main_hall");
-      if (!this.sceneData) {
-        logger.error("[MainHallScene] Missing scene data for main_hall");
-        return;
+      logger.info("[MainHallScene] No portfolio data, using default content");
+      try {
+        this.sceneData = getShowcaseScene("main_hall");
+        if (!this.sceneData) {
+          logger.warn("[MainHallScene] Missing scene data for main_hall, scene will be empty");
+          // Scene is still initialized, just without content
+        } else {
+          logger.info("[MainHallScene] Using default scene data:", this.sceneData);
+          const panels = this.sceneData.panels || [];
+          const teleports = this.sceneData.teleports || [];
+
+          if (panels.length > 0) {
+            this.renderPanels(panels);
+          } else {
+            logger.warn("[MainHallScene] No default panels available");
+          }
+          
+          if (teleports && teleports.length > 0) {
+            this.renderTeleports(teleports);
+          }
+        }
+      } catch (error) {
+        logger.error("[MainHallScene] Error loading default content:", error);
+        // Scene is still initialized, just without content
       }
-
-      logger.info("[MainHallScene] Using default scene data:", this.sceneData);
-      const panels = this.sceneData.panels || [];
-      const teleports = this.sceneData.teleports || [];
-
-      this.renderPanels(panels);
-      this.renderTeleports(teleports);
     }
 
     logger.info(`[MainHallScene] Created ${this.entities.length} entities`);
@@ -90,93 +121,248 @@ export class MainHallScene extends BaseScene {
     });
   }
 
-  renderPanels(panels, templateId = 'creative-portfolio') {
+  async renderPanels(panels, templateId = 'creative-portfolio') {
+    if (this.isInitializing) {
+      logger.warn(`[MainHallScene] Already initializing panels, skipping duplicate call`);
+      return;
+    }
+
     logger.info(`[MainHallScene] Starting to render ${panels.length} panels with template: ${templateId}`);
     console.log(`[MainHallScene] Rendering ${panels.length} panels:`, panels);
 
-    // Get template-specific layout
-    const layout = getTemplateLayout(templateId);
-    console.log(`[MainHallScene] Layout config:`, layout);
-    
-    const positions = calculatePanelPositions(panels, layout);
-    console.log(`[MainHallScene] Calculated positions for ${panels.length} panels:`, positions);
+    // Don't render if no panels
+    if (!panels || panels.length === 0) {
+      logger.warn(`[MainHallScene] No panels to render, skipping`);
+      return;
+    }
 
-    panels.forEach((panel, index) => {
-      logger.info(`[MainHallScene] Rendering panel ${index}: ${panel.title}`);
-      console.log(`[MainHallScene] Creating panel ${index}:`, {
-        title: panel.title,
-        hasImage: !!panel.image,
-        hasVideo: !!panel.video,
-        mediaCount: panel.media?.length || 0,
-        panelId: panel.id
-      });
+    this.isInitializing = true;
 
-      const entity = this.world.createTransformEntity().addComponent(PanelUI, {
-        config: "/ui/projectPanel.json",
-        maxWidth: layout.panelMaxWidth,
-        maxHeight: layout.panelMaxHeight
-      });
+    try {
+      // Get template-specific layout
+      const layout = getTemplateLayout(templateId);
+      console.log(`[MainHallScene] Layout config:`, layout);
+      
+      // Validate layout
+      if (!layout) {
+        throw new Error(`Invalid layout for template: ${templateId}`);
+      }
+      
+      const positions = calculatePanelPositions(panels, layout);
+      console.log(`[MainHallScene] Calculated positions for ${panels.length} panels:`, positions);
 
-      // Use template-based positioning
-      const position = positions[index] || { x: 0, y: 1.6, z: -3.0 };
-      console.log(`[MainHallScene] Panel ${index} position:`, position);
-      console.log(`[MainHallScene] Panel ${index} entity index:`, entity.index);
-      entity.object3D.position.set(position.x, position.y, position.z);
-      entity.object3D.lookAt(0, 1.6, 0);
-
-      // Log the actual 3D position after setting
-      console.log(`[MainHallScene] Panel ${index} actual 3D position:`, {
-        x: entity.object3D.position.x,
-        y: entity.object3D.position.y,
-        z: entity.object3D.position.z
-      });
-
-      this.trackEntity(entity);
-
-      // Apply template colors if available
-      if (this.templateColors) {
-        applyTemplateColors(this.templateColors, entity);
+      // Validate positions
+      if (!positions || positions.length === 0) {
+        throw new Error('Failed to calculate positions for panels');
       }
 
-      // Delay content binding to ensure PanelUI is fully initialized
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          // Get portfolio ID from world data for analytics
+      await this._renderPanelsWithProperLifecycle(panels, positions, layout);
+      
+    } catch (error) {
+      logger.error(`[MainHallScene] Error rendering panels:`, error);
+    } finally {
+      this.isInitializing = false;
+    }
+  }
+
+  /**
+   * Render panels with proper IWSDK lifecycle management
+   * @private
+   */
+  async _renderPanelsWithProperLifecycle(panels, positions, layout) {
+    console.log(`[MainHallScene] ========== CREATING PANELS WITH LIFECYCLE MANAGEMENT ==========`);
+    console.log(`[MainHallScene] Panels to create:`, panels.length);
+    console.log(`[MainHallScene] Positions:`, positions);
+    console.log(`[MainHallScene] Layout:`, layout);
+    logger.info(`[MainHallScene] Creating ${panels.length} panels with proper lifecycle management`);
+
+    const maxWidth = layout?.panelMaxWidth ?? 1.5;
+    const maxHeight = layout?.panelMaxHeight ?? 2.0;
+
+    console.log(`[MainHallScene] Panel dimensions: ${maxWidth}x${maxHeight}`);
+
+    // Create all panels concurrently using the proper entity manager
+    const panelPromises = panels.map(async (panel, index) => {
+      // Validate panel data
+      if (!panel || !panel.id) {
+        console.warn(`[MainHallScene] Invalid panel data at index ${index}:`, panel);
+        logger.warn(`[MainHallScene] Invalid panel data at index ${index}, skipping`);
+        return null;
+      }
+
+      try {
+        console.log(`[MainHallScene] ========== CREATING PANEL ${index + 1}/${panels.length} ==========`);
+        console.log(`[MainHallScene] Panel ID:`, panel.id);
+        console.log(`[MainHallScene] Panel data:`, panel);
+        console.log(`[MainHallScene] Panel position:`, positions[index]);
+        logger.info(`[MainHallScene] Creating panel ${index}: ${panel.title}`);
+        
+        const position = positions[index] || { x: 0, y: 1.6, z: -3.0 };
+        
+        // Try the proper entity manager first with fallback
+        let entity;
+        try {
+          entity = await this.panelEntityManager.createPanelEntity({
+            id: panel.id,
+            uiConfig: "/ui/projectPanel.json",
+            maxWidth,
+            maxHeight,
+            position
+          });
+        } catch (entityManagerError) {
+          logger.warn(`[MainHallScene] Entity manager failed for panel ${index}, falling back to simple creation:`, entityManagerError);
+          
+          // Fallback: Create entity directly without complex timing
+          entity = this.world.createTransformEntity().addComponent(PanelUI, {
+            config: "/ui/projectPanel.json",
+            maxWidth,
+            maxHeight
+          });
+          
+          // Wait a moment for PanelUI to initialize
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          // Simple positioning
+          if (entity.object3D) {
+            entity.object3D.position.set(position.x, position.y, position.z);
+            entity.object3D.lookAt(0, 1.6, 0);
+          } else {
+            // If still no object3D, wait a bit more and try again
+            await new Promise(resolve => setTimeout(resolve, 300));
+            if (entity.object3D) {
+              entity.object3D.position.set(position.x, position.y, position.z);
+              entity.object3D.lookAt(0, 1.6, 0);
+            }
+          }
+          
+          logger.info(`[MainHallScene] Panel ${index} created with fallback method`);
+        }
+
+        // CRITICAL: Ensure entity is visible and properly set up before tracking
+        if (entity.object3D) {
+          // Make sure entity is visible
+          entity.object3D.visible = true;
+          
+          // Verify position is set
+          if (!entity.object3D.position.x && !entity.object3D.position.y && !entity.object3D.position.z) {
+            console.warn(`[MainHallScene] Entity ${index} position not set, setting default`);
+            entity.object3D.position.set(position.x, position.y, position.z);
+            entity.object3D.lookAt(0, 1.6, 0);
+          }
+          
+          console.log(`[MainHallScene] Panel ${index} entity ready:`, {
+            index: entity.index,
+            visible: entity.object3D.visible,
+            position: {
+              x: entity.object3D.position.x,
+              y: entity.object3D.position.y,
+              z: entity.object3D.position.z
+            },
+            hasMaterial: !!entity.object3D.material
+          });
+        } else {
+          console.error(`[MainHallScene] Panel ${index} entity has no object3D!`);
+          logger.error(`[MainHallScene] Panel ${index} entity has no object3D`);
+        }
+
+        // Track entity in scene (adds to entities array)
+        this.trackEntity(entity);
+        console.log(`[MainHallScene] Panel ${index} entity tracked. Total entities: ${this.entities.length}`);
+
+        // Apply template colors if available
+        if (this.templateColors) {
+          try {
+            applyTemplateColors(this.templateColors, entity);
+          } catch (error) {
+            logger.warn(`[MainHallScene] Error applying template colors to panel ${index}:`, error);
+          }
+        }
+
+        // Bind panel content (with delay to ensure PanelUI is ready)
+        try {
           const portfolioId = this.world.portfolioData?.portfolio?.id || null;
           
-          // In Main Hall, panels are individual media items from the first project
-          // They are directly viewable - no navigation needed
-          // Each panel represents one media item from the Main Hall project
+          // Add a small delay before binding content to ensure PanelUI is fully initialized
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
           bindPanelContent(entity, {
+            name: panel.name,
             title: panel.title,
             description: panel.description,
             image: panel.image,
             video: panel.video,
-            media: panel.media || [], // Single media item per panel
+            media: panel.media || [],
             panelId: panel.id,
             portfolioId: portfolioId,
-            // No onClick - panels are directly viewable in Main Hall
           });
-        });
-      });
+          
+          console.log(`[MainHallScene] Panel ${index} content bound successfully`);
+        } catch (error) {
+          console.error(`[MainHallScene] Error binding content for panel ${index}:`, error);
+          logger.error(`[MainHallScene] Error binding content for panel ${index}:`, error);
+        }
 
-      logger.info(`[MainHallScene] Panel ${index} created at position (${position.x}, ${position.y}, ${position.z})`);
-      console.log(`[MainHallScene] ✅ Panel ${index} fully created and tracked`);
+        logger.info(`[MainHallScene] Panel ${index} created successfully`);
+        console.log(`[MainHallScene] ✅ Panel ${index} fully initialized and ready`);
+        return entity;
+
+      } catch (error) {
+        logger.error(`[MainHallScene] Failed to create panel ${index}:`, error);
+        return null;
+      }
     });
+
+    // Wait for all panels to be created
+    const entities = await Promise.allSettled(panelPromises);
     
-    logger.info(`[MainHallScene] Created ${panels.length} panels with ${templateId} template`);
-    console.log(`[MainHallScene] ✅ Total panels created: ${panels.length}`);
-    console.log(`[MainHallScene] Total entities tracked: ${this.entities.length}`);
+    const successCount = entities.filter(result => 
+      result.status === 'fulfilled' && result.value !== null
+    ).length;
     
-    // Verify all entities have different positions
-    const entityPositions = this.entities
-      .filter(e => e.object3D)
-      .map(e => ({
-        x: e.object3D.position.x,
-        y: e.object3D.position.y,
-        z: e.object3D.position.z
+    const failureCount = entities.length - successCount;
+    
+    logger.info(`[MainHallScene] Panel creation completed: ${successCount} successful, ${failureCount} failed`);
+    console.log(`[MainHallScene] ✅ Created ${successCount}/${panels.length} panels successfully`);
+    console.log(`[MainHallScene] Total tracked entities: ${this.entities.length}`);
+    
+    if (failureCount > 0) {
+      logger.warn(`[MainHallScene] ${failureCount} panels failed to create`);
+      // Log which panels failed
+      entities.forEach((result, index) => {
+        if (result.status === 'rejected' || result.value === null) {
+          console.error(`[MainHallScene] Panel ${index} failed:`, result.status === 'rejected' ? result.reason : 'returned null');
+        }
+      });
+    }
+    
+    // Verify all entities have different positions and are visible
+    const entityInfo = this.entities
+      .filter(e => e && e.object3D)
+      .map((e, idx) => ({
+        index: idx,
+        entityIndex: e.index,
+        visible: e.object3D.visible,
+        position: {
+          x: e.object3D.position.x,
+          y: e.object3D.position.y,
+          z: e.object3D.position.z
+        },
+        hasMaterial: !!e.object3D.material
       }));
-    console.log(`[MainHallScene] All entity positions:`, entityPositions);
+    
+    console.log(`[MainHallScene] All entity info:`, entityInfo);
+    console.log(`[MainHallScene] Visible entities: ${entityInfo.filter(e => e.visible).length}/${entityInfo.length}`);
+    
+    // Final verification - check if any entities are actually visible
+    if (entityInfo.length === 0) {
+      console.error(`[MainHallScene] ❌ NO ENTITIES CREATED! Check panel creation logic.`);
+      logger.error(`[MainHallScene] No entities were created - this is a critical error`);
+    } else if (entityInfo.filter(e => e.visible).length === 0) {
+      console.warn(`[MainHallScene] ⚠️ Entities created but none are visible!`);
+      logger.warn(`[MainHallScene] Entities created but none are visible`);
+    } else {
+      console.log(`[MainHallScene] ✅ ${entityInfo.filter(e => e.visible).length} visible entities ready`);
+    }
   }
 
   renderTeleports(teleports) {
@@ -299,5 +485,22 @@ export class MainHallScene extends BaseScene {
     }).catch((error) => {
       logger.error("[MainHallScene] Failed to load ProjectDetailScene:", error);
     });
+  }
+
+  /**
+   * Cleanup scene resources when leaving
+   */
+  cleanup() {
+    super.cleanup?.();
+    
+    // Cleanup panel entity manager
+    if (this.panelEntityManager) {
+      this.panelEntityManager.cleanup();
+    }
+    
+    // Reset initialization state
+    this.isInitializing = false;
+    
+    logger.info("[MainHallScene] Cleanup completed");
   }
 }

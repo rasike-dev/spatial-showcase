@@ -1,3 +1,6 @@
+import { logger } from '../utils/logger.js';
+import { endSession } from '../utils/analytics.js';
+
 /**
  * Coordinates scene lifecycle: creation, initialization, and disposal.
  */
@@ -41,16 +44,20 @@ export class SceneManager {
       this.activeScene = null;
 
       // Wait for next frame to ensure cleanup is complete
-      requestAnimationFrame(() => {
-        this._createNewScene(SceneClass, data, sceneName);
+      requestAnimationFrame(async () => {
+        await this._createNewScene(SceneClass, data, sceneName);
       });
     } else {
       // No previous scene, create immediately
-      this._createNewScene(SceneClass, data, sceneName);
+      this._createNewScene(SceneClass, data, sceneName).catch(error => {
+        console.error(`[SceneManager] Error creating scene:`, error);
+        logger.error(`[SceneManager] Error creating scene:`, error);
+        this.isLoading = false; // Release lock even on error
+      });
     }
   }
 
-  _createNewScene(SceneClass, data, sceneName) {
+  async _createNewScene(SceneClass, data, sceneName) {
     console.log(`[SceneManager] Creating new scene: ${sceneName}`);
 
     // End previous session if switching scenes
@@ -61,17 +68,28 @@ export class SceneManager {
     // Create new scene
     this.activeScene = new SceneClass(this.world, this);
 
-    // Initialize scene with data
+    // Initialize scene with data (handle async init if needed)
     if (this.activeScene.init) {
-      this.activeScene.init(data || {});
+      try {
+        const initResult = this.activeScene.init(data || {});
+        // If init returns a promise, wait for it to complete
+        if (initResult && typeof initResult.then === 'function') {
+          await initResult;
+          console.log(`[SceneManager] Scene async initialization completed: ${sceneName}`);
+        } else {
+          console.log(`[SceneManager] Scene synchronous initialization completed: ${sceneName}`);
+        }
+      } catch (error) {
+        console.error(`[SceneManager] Error during scene initialization:`, error);
+        logger.error(`[SceneManager] Error during scene initialization:`, error);
+        // Continue even if initialization fails
+      }
     }
 
     console.log(`[SceneManager] Scene initialized: ${sceneName}`);
 
-    // Reset loading lock after a short delay to allow scene to fully initialize
-    setTimeout(() => {
-      this.isLoading = false;
-      console.log(`[SceneManager] Loading lock released for: ${sceneName}`);
-    }, 500);
+    // Reset loading lock after initialization completes
+    this.isLoading = false;
+    console.log(`[SceneManager] Loading lock released for: ${sceneName}`);
   }
 }
