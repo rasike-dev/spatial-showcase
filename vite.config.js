@@ -25,6 +25,8 @@ export default defineConfig({
     host: '0.0.0.0', 
     port: 8081, 
     open: true,
+    https: true, // mkcert enables HTTPS
+    strictPort: true,
   },
   preview: {
     host: '0.0.0.0',

@@ -6,6 +6,7 @@ export interface Project {
   title: string;
   description: string | null;
   order_index: number;
+  panel_count: number; // Number of panels to display for this project/room/level
   created_at: string;
   updated_at: string;
 }
@@ -15,12 +16,14 @@ export interface CreateProjectData {
   title: string;
   description?: string;
   order_index?: number;
+  panel_count?: number;
 }
 
 export interface UpdateProjectData {
   title?: string;
   description?: string;
   order_index?: number;
+  panel_count?: number;
 }
 
 export const projectsApi = {

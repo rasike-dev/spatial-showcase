@@ -11,9 +11,9 @@ import { logger } from './logger.js';
 export function getTemplateLayout(templateId) {
   const layouts = {
     'creative-portfolio': {
-      panelSpacing: 2.2,
-      panelMaxWidth: 2.0,
-      panelMaxHeight: 2.5,
+      panelSpacing: 1.8, // Reduced spacing - panels closer together
+      panelMaxWidth: 1.6, // Reduced panel width
+      panelMaxHeight: 2.0, // Reduced panel height
       panelPosition: { x: 0, y: 1.6, z: -3.0 },
       layout: 'horizontal', // horizontal, grid, vertical
       columns: 3,
@@ -46,6 +46,13 @@ export function calculatePanelPositions(panels, layout) {
   const positions = [];
   const { panelSpacing, panelPosition, layout: layoutType, columns } = layout;
 
+  logger.info(`[TemplateRenderer] Calculating positions for ${panels.length} panels`, {
+    layoutType,
+    columns,
+    panelSpacing,
+    panelPosition
+  });
+
   if (layoutType === 'grid' && columns) {
     // Grid layout
     const rows = Math.ceil(panels.length / columns);
@@ -77,16 +84,20 @@ export function calculatePanelPositions(panels, layout) {
   } else {
     // Default: horizontal layout
     const offsetStart = panels.length > 1 ? -((panels.length - 1) * panelSpacing) / 2 : 0;
+    logger.info(`[TemplateRenderer] Horizontal layout - offsetStart: ${offsetStart}, spacing: ${panelSpacing}`);
     panels.forEach((panel, index) => {
       const xOffset = offsetStart + index * panelSpacing;
-      positions.push({
+      const position = {
         x: panelPosition.x + xOffset,
         y: panelPosition.y,
         z: panelPosition.z,
-      });
+      };
+      positions.push(position);
+      logger.info(`[TemplateRenderer] Panel ${index} position: x=${position.x}, y=${position.y}, z=${position.z}`);
     });
   }
 
+  logger.info(`[TemplateRenderer] Calculated ${positions.length} positions`);
   return positions;
 }
 

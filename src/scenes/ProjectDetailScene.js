@@ -18,15 +18,16 @@ export class ProjectDetailScene extends BaseScene {
   }
 
   /**
-   * Initialize the project detail scene
+   * Initialize the project room scene (one project = one room/level)
    * @param {Object} options - Scene options
-   * @param {Object} options.project - Project data with media
+   * @param {Object} options.projectData - Project data with media (one room/level)
+   * @param {Object} options.project - Alternative name for projectData
    */
   init(options = {}) {
     this.setupCamera();
     
-    // Get project data from options or world
-    this.projectData = options?.project || this.world.currentProject;
+    // Get project data from options (support both projectData and project names)
+    this.projectData = options?.projectData || options?.project || this.world.currentProject;
     
     if (!this.projectData) {
       logger.error("[ProjectDetailScene] No project data provided");
@@ -35,7 +36,8 @@ export class ProjectDetailScene extends BaseScene {
       return;
     }
 
-    logger.info("[ProjectDetailScene] Initializing with project:", this.projectData.title);
+    logger.info("[ProjectDetailScene] Initializing project room:", this.projectData.title);
+    logger.info("[ProjectDetailScene] Project has", this.projectData.media?.length || 0, "media items (panels)");
 
     // Track project view
     if (window.portfolioId) {
@@ -74,12 +76,17 @@ export class ProjectDetailScene extends BaseScene {
 
     this.trackEntity(entity);
 
-    // Bind project header content
+    // Bind project room header content
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        const mediaCount = this.projectData.media?.length || 0;
+        const description = this.projectData.description 
+          ? `${this.projectData.description}\n\n${mediaCount} panel${mediaCount !== 1 ? 's' : ''} in this room`
+          : `${mediaCount} panel${mediaCount !== 1 ? 's' : ''} in this room`;
+        
         bindPanelContent(entity, {
-          title: this.projectData.title,
-          description: this.projectData.description || "No description available",
+          title: this.projectData.title || "Project Room",
+          description: description,
           image: null, // No image in header
         });
       });
@@ -94,9 +101,13 @@ export class ProjectDetailScene extends BaseScene {
       return;
     }
 
-    logger.info(`[ProjectDetailScene] Creating gallery with ${media.length} media items`);
+    // One panel per media item
+    // panel_count should equal number of media items
+    // We use media.length directly to ensure they match
+    const panelCount = media.length;
+    logger.info(`[ProjectDetailScene] Creating room with ${panelCount} panels (one per media item)`);
 
-    // Arrange media in a grid or circle
+    // Arrange panels in a circle
     const radius = 2.5;
     const startAngle = -Math.PI / 2; // Start at top
     const angleStep = (Math.PI * 2) / Math.max(media.length, 1);
@@ -118,17 +129,17 @@ export class ProjectDetailScene extends BaseScene {
 
       this.trackEntity(entity);
 
-      // Bind media content
+      // Bind media content - one panel per media item
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           const isVideo = mediaItem.type === 'video';
           bindPanelContent(entity, {
-            title: mediaItem.filename || `Media ${index + 1}`,
-            description: isVideo ? "Click to play video" : "",
+            title: mediaItem.filename || `${this.projectData.title} - Panel ${index + 1}`,
+            description: isVideo ? "Click to play video" : (mediaItem.description || ""),
             image: isVideo ? null : mediaItem.url,
             video: isVideo ? mediaItem.url : null,
-            media: [mediaItem],
-            panelId: mediaItem.id,
+            media: [mediaItem], // One media item per panel
+            panelId: mediaItem.id || `panel-${index}`,
             portfolioId: window.portfolioId,
           });
         });

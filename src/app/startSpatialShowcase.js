@@ -14,31 +14,48 @@ import { endSession } from "../utils/analytics.js";
 export async function startSpatialShowcase(world, options = {}) {
   const sceneManager = new SceneManager(world);
 
+  // IMPORTANT: Check URL immediately on load, before any redirects can happen
+  // This ensures we capture the hash fragment even if there's an HTTP->HTTPS redirect
+  console.log('[startSpatialShowcase] ========== INITIALIZING ==========');
+  console.log('[startSpatialShowcase] Initial URL:', window.location.href);
+  console.log('[startSpatialShowcase] Initial hash:', window.location.hash);
+  
+  // Check sessionStorage for hash that might have been stored by HTML inline script
+  const storedHash = sessionStorage.getItem('pendingShareToken');
+  if (storedHash && !window.location.hash) {
+    console.log('[startSpatialShowcase] ⚠️ Hash missing from URL, restoring from sessionStorage:', storedHash);
+    window.location.hash = storedHash;
+    // Give browser a moment to update
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
   // Check if we should load a portfolio from API
   let portfolioId = options?.portfolioId || getPortfolioIdFromURL();
   
   // Set up hashchange listener for dynamic hash updates
-  if (!portfolioId) {
-    console.log('[startSpatialShowcase] No token found initially, setting up hashchange listener...');
-    window.addEventListener('hashchange', () => {
-      const newToken = getPortfolioIdFromURL();
-      if (newToken && newToken !== portfolioId) {
-        console.log('[startSpatialShowcase] Hash changed, loading new portfolio:', newToken);
-        portfolioId = newToken;
-        loadPortfolioAndStartScene(world, sceneManager, portfolioId);
-      }
-    }, { once: false });
-    
-    // Also check after a short delay in case hash is set programmatically
-    setTimeout(() => {
-      const delayedToken = getPortfolioIdFromURL();
-      if (delayedToken && !portfolioId) {
-        console.log('[startSpatialShowcase] Found token after delay:', delayedToken);
-        portfolioId = delayedToken;
-        loadPortfolioAndStartScene(world, sceneManager, portfolioId);
-      }
-    }, 500);
-  }
+  window.addEventListener('hashchange', () => {
+    const newToken = getPortfolioIdFromURL();
+    if (newToken && newToken !== portfolioId) {
+      console.log('[startSpatialShowcase] Hash changed, loading new portfolio:', newToken);
+      portfolioId = newToken;
+      loadPortfolioAndStartScene(world, sceneManager, portfolioId);
+    }
+  }, { once: false });
+  
+  // Also check after a short delay in case hash is set programmatically or after redirect
+  setTimeout(() => {
+    const delayedToken = getPortfolioIdFromURL();
+    if (delayedToken && !portfolioId) {
+      console.log('[startSpatialShowcase] Found token after delay:', delayedToken);
+      portfolioId = delayedToken;
+      loadPortfolioAndStartScene(world, sceneManager, portfolioId);
+    } else if (!portfolioId) {
+      console.log('[startSpatialShowcase] No token found after delay, checking URL again:', {
+        href: window.location.href,
+        hash: window.location.hash
+      });
+    }
+  }, 1000); // Increased delay to account for redirects
   
   if (portfolioId) {
     console.log('[startSpatialShowcase] Portfolio ID found, loading:', portfolioId);
@@ -119,9 +136,17 @@ async function loadPortfolioAndStartScene(world, sceneManager, portfolioId) {
  */
 function getPortfolioIdFromURL() {
   const path = window.location.pathname;
-  const hash = window.location.hash;
+  let hash = window.location.hash;
   const params = new URLSearchParams(window.location.search);
   const fullUrl = window.location.href;
+
+  // Check sessionStorage for hash that might have been lost during redirect
+  if (!hash && sessionStorage.getItem('pendingShareToken')) {
+    hash = sessionStorage.getItem('pendingShareToken');
+    console.log('[getPortfolioIdFromURL] Recovered hash from sessionStorage:', hash);
+    // Clear it after use
+    sessionStorage.removeItem('pendingShareToken');
+  }
 
   console.log('[getPortfolioIdFromURL] Parsing URL:', {
     pathname: path,

@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS projects (
   title VARCHAR(255) NOT NULL,
   description TEXT,
   order_index INTEGER DEFAULT 0,
+  panel_count INTEGER DEFAULT 1, -- Number of panels to display for this project/room/level
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

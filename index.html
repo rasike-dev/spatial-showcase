@@ -8,10 +8,35 @@
     />
     <title>spatial-showcase</title>
     <script>
-      // Immediate inline script to verify page loads
+      // Immediate inline script to verify page loads and preserve hash
       console.log('[HTML] Page loaded, URL:', window.location.href);
       console.log('[HTML] Hash:', window.location.hash);
       console.log('[HTML] Query params:', window.location.search);
+      
+      // CRITICAL: Store hash IMMEDIATELY before any redirects can happen
+      // This runs before any module scripts, ensuring we capture the hash
+      if (window.location.hash) {
+        const hash = window.location.hash;
+        console.log('[HTML] ✅ Hash detected, storing in sessionStorage:', hash);
+        try {
+          sessionStorage.setItem('pendingShareToken', hash);
+          sessionStorage.setItem('hashTimestamp', Date.now().toString());
+          console.log('[HTML] ✅ Hash stored successfully');
+        } catch (e) {
+          console.error('[HTML] ❌ Failed to store hash:', e);
+        }
+      } else {
+        // Check if we have a stored hash from a previous redirect
+        const storedHash = sessionStorage.getItem('pendingShareToken');
+        if (storedHash) {
+          console.log('[HTML] ⚠️ Hash missing but found in sessionStorage:', storedHash);
+          // Restore hash to URL if it was lost
+          if (!window.location.hash && storedHash) {
+            console.log('[HTML] Restoring hash to URL...');
+            window.location.hash = storedHash;
+          }
+        }
+      }
     </script>
   </head>
   <body style="margin: 0">

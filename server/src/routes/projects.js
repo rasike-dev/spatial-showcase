@@ -10,7 +10,7 @@ router.get('/portfolio/:portfolioId', async (req, res, next) => {
     const { portfolioId } = req.params;
 
     const result = await query(
-      `SELECT id, title, description, order_index, created_at, updated_at
+      `SELECT id, title, description, order_index, panel_count, created_at, updated_at
        FROM projects
        WHERE portfolio_id = $1
        ORDER BY order_index ASC, created_at ASC`,
@@ -46,7 +46,7 @@ router.get('/:id', async (req, res, next) => {
 // Create new project
 router.post('/', authenticateToken, async (req, res, next) => {
   try {
-    const { portfolio_id, title, description, order_index } = req.body;
+    const { portfolio_id, title, description, order_index, panel_count } = req.body;
 
     if (!portfolio_id || !title) {
       return res.status(400).json({ error: 'Portfolio ID and title are required' });
@@ -67,10 +67,10 @@ router.post('/', authenticateToken, async (req, res, next) => {
     }
 
     const result = await query(
-      `INSERT INTO projects (portfolio_id, title, description, order_index)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, portfolio_id, title, description, order_index, created_at`,
-      [portfolio_id, title, description || null, order_index || 0]
+      `INSERT INTO projects (portfolio_id, title, description, order_index, panel_count)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, portfolio_id, title, description, order_index, panel_count, created_at`,
+      [portfolio_id, title, description || null, order_index || 0, panel_count || 1]
     );
 
     res.status(201).json({ project: result.rows[0] });
@@ -83,7 +83,7 @@ router.post('/', authenticateToken, async (req, res, next) => {
 router.put('/:id', authenticateToken, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { title, description, order_index } = req.body;
+    const { title, description, order_index, panel_count } = req.body;
 
     // Verify ownership through portfolio
     const projectCheck = await query(
@@ -118,6 +118,11 @@ router.put('/:id', authenticateToken, async (req, res, next) => {
     if (order_index !== undefined) {
       updates.push(`order_index = $${paramCount++}`);
       values.push(order_index);
+    }
+
+    if (panel_count !== undefined) {
+      updates.push(`panel_count = $${paramCount++}`);
+      values.push(panel_count);
     }
 
     if (updates.length === 0) {

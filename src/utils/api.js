@@ -25,9 +25,13 @@ export async function getPortfolio(idOrToken, useCache = true) {
 
   const url = `${API_BASE_URL}/share/${idOrToken}`;
   logger.info('[API] Fetching portfolio from:', url);
+  console.log('[API] ========== FETCHING PORTFOLIO ==========');
+  console.log('[API] URL:', url);
+  console.log('[API] Token/ID:', idOrToken);
 
   try {
     console.log('[API] Making request to:', url);
+    const startTime = Date.now();
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -53,14 +57,22 @@ export async function getPortfolio(idOrToken, useCache = true) {
     }
 
     const data = await response.json();
-    console.log('[API] Portfolio data received:', data);
+    const duration = Date.now() - startTime;
+    console.log('[API] ✅ Response received in', duration, 'ms');
+    console.log('[API] Response data:', data);
     logger.info('[API] Portfolio data received:', data);
     
     const portfolio = data.portfolio;
     
     if (!portfolio) {
+      console.error('[API] ❌ Portfolio data not found in response. Response keys:', Object.keys(data));
       throw new Error('Portfolio data not found in response');
     }
+    
+    console.log('[API] ✅ Portfolio loaded successfully:', {
+      id: portfolio.id,
+      title: portfolio.title
+    });
     
     // Cache the result
     if (useCache && portfolio) {
@@ -122,14 +134,24 @@ export async function getMedia(projectId = null, portfolioId = null) {
     if (projectId) params.append('project_id', projectId);
     if (portfolioId) params.append('portfolio_id', portfolioId);
     
-    const response = await fetch(`${API_BASE_URL}/media?${params.toString()}`);
+    const url = `${API_BASE_URL}/media?${params.toString()}`;
+    console.log(`[API] Fetching media from: ${url}`);
+    logger.info(`[API] Fetching media: projectId=${projectId}, portfolioId=${portfolioId}`);
+    
+    const response = await fetch(url);
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API] Error response body (media):`, errorText);
       throw new Error(`Failed to fetch media: ${response.statusText}`);
     }
     const data = await response.json();
-    return data.media || [];
+    const media = data.media || [];
+    console.log(`[API] Received ${media.length} media items:`, media);
+    logger.info(`[API] Received ${media.length} media items`);
+    return media;
   } catch (error) {
     console.error('[API] Error fetching media:', error);
+    logger.error('[API] Error fetching media:', error);
     return [];
   }
 }

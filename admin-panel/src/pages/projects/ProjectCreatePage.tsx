@@ -15,6 +15,7 @@ const projectSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   order_index: z.number().int().min(0),
+  panel_count: z.number().int().min(1).max(20), // 1-20 panels per room/level
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -34,6 +35,7 @@ export default function ProjectCreatePage() {
     resolver: zodResolver(projectSchema),
     defaultValues: {
       order_index: 0,
+      panel_count: 1, // Default: 1 panel per room/level
     },
   });
 
@@ -133,7 +135,7 @@ export default function ProjectCreatePage() {
 
             <div>
               <label htmlFor="order_index" className="block text-sm font-medium mb-2">
-                Order Index
+                Order Index <span className="text-gray-500 text-xs">(for multiple levels/rooms)</span>
               </label>
               <Input
                 id="order_index"
@@ -143,8 +145,33 @@ export default function ProjectCreatePage() {
                 min={0}
                 className={errors.order_index ? 'border-red-500' : ''}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Set the order of this project/room. Lower numbers appear first.
+              </p>
               {errors.order_index && (
                 <p className="text-red-500 text-sm mt-1">{errors.order_index.message}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="panel_count" className="block text-sm font-medium mb-2">
+                Number of Panels per Room/Level
+              </label>
+              <Input
+                id="panel_count"
+                type="number"
+                {...register('panel_count', { valueAsNumber: true })}
+                placeholder="1"
+                min={1}
+                max={20}
+                className={errors.panel_count ? 'border-red-500' : ''}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                <strong>Important:</strong> This should equal the number of media items you'll add to this project.
+                Each media item = one panel. Set this to match your media count (1-20).
+              </p>
+              {errors.panel_count && (
+                <p className="text-red-500 text-sm mt-1">{errors.panel_count.message}</p>
               )}
             </div>
 

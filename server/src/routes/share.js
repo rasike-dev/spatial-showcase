@@ -9,7 +9,10 @@ const router = express.Router();
 router.get('/:token', async (req, res, next) => {
   try {
     const { token } = req.params;
-    console.log('[Share Route] Fetching portfolio with token:', token);
+    console.log('[Share Route] ========== FETCHING PORTFOLIO ==========');
+    console.log('[Share Route] Token received:', token);
+    console.log('[Share Route] Request URL:', req.originalUrl);
+    console.log('[Share Route] Request method:', req.method);
 
     // First check share_links table for the token
     const shareLinkResult = await query(
@@ -59,7 +62,11 @@ router.get('/:token', async (req, res, next) => {
     }
 
     const portfolio = result.rows[0];
-    console.log('[Share Route] Portfolio found:', portfolio.id, portfolio.title);
+    console.log('[Share Route] ✅ Portfolio found:', {
+      id: portfolio.id,
+      title: portfolio.title,
+      user_id: portfolio.user_id
+    });
 
     // Track view (non-blocking)
     query(
@@ -71,7 +78,9 @@ router.get('/:token', async (req, res, next) => {
       // Don't fail the request if analytics fails
     });
 
+    console.log('[Share Route] ✅ Sending portfolio response');
     res.json({ portfolio });
+    console.log('[Share Route] ✅ Response sent successfully');
   } catch (error) {
     console.error('[Share Route] Error:', error);
     next(error);
@@ -195,8 +204,21 @@ router.post('/:portfolioId/generate', authenticateToken, async (req, res, next) 
 
     // Use hash fragment instead of query parameter to avoid Vite routing issues
     // Hash fragments are handled entirely client-side
-    const baseUrl = (process.env.VR_APP_URL || 'http://localhost:8081').replace(/\/$/, '');
+    // Use HTTPS if mkcert is enabled (which it is in vite.config.js)
+    // Force HTTPS to match the VR app's actual URL
+    let baseUrl = process.env.VR_APP_URL || 'https://localhost:8081';
+    baseUrl = baseUrl.replace(/\/$/, '');
+    
+    // FORCE HTTPS for localhost:8081 (mkcert enables HTTPS, so we must use HTTPS)
+    if (baseUrl.includes('localhost:8081')) {
+      baseUrl = baseUrl.replace(/^http:\/\//, 'https://');
+      console.log('[Share Route] ⚠️ Forced HTTPS for localhost:8081:', baseUrl);
+    }
+    
     const shareUrl = `${baseUrl}/#token=${shareToken}`;
+    console.log('[Share Route] Final share URL generated:', shareUrl);
+    
+    console.log('[Share Route] Generated share URL:', shareUrl);
 
     console.log('[Share Route] Returning share link:', {
       shareUrl,
