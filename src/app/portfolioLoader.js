@@ -77,8 +77,8 @@ export function portfolioToSceneData(portfolioData) {
   
   const mainHallPanels = mainHallMedia.map((mediaItem, index) => {
     // Use media item's name and title fields (from database)
-    // Name: display name for the media (shown in admin/lists)
-    // Title: title to show below the media in VR panels
+    // Name: display name for the media (shown in admin/lists and as main title in VR)
+    // Title: subtitle to show below the media in VR panels (this is the description/subtitle)
     const mediaName = mediaItem.name || mediaItem.filename || `Media ${index + 1}`;
     const mediaTitle = mediaItem.title || mediaItem.name || mediaItem.filename || `Media ${index + 1}`;
     
@@ -86,14 +86,17 @@ export function portfolioToSceneData(portfolioData) {
     const metadata = typeof mediaItem.metadata === 'string' 
       ? JSON.parse(mediaItem.metadata || '{}')
       : (mediaItem.metadata || {});
-    const description = metadata.description || metadata.caption || '';
+    
+    // Description/subtitle: Use media.title as subtitle, fallback to metadata description
+    // The media.title field is specifically for showing as subtitle below the media in VR
+    const description = mediaItem.title || metadata.description || metadata.caption || '';
     
     return {
       id: `${mainHallProject.id}-panel-${index}`,
       projectId: mainHallProject.id, // Reference to the project
-      name: mediaName, // Media item's name
-      title: mediaTitle, // Media item's title (shown below media)
-      description: description, // Additional description from metadata
+      name: mediaName, // Media item's name (shown as main title)
+      title: mediaTitle, // Media item's title (also used for fallback)
+      description: description, // Subtitle/description: media.title or metadata description
       image: mediaItem.type === 'image' ? mediaItem.url : null,
       video: mediaItem.type === 'video' ? mediaItem.url : null,
       media: [mediaItem], // Single media item per panel
