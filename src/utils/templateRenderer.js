@@ -223,6 +223,9 @@ export function calculatePanelPositions(panels, layout) {
         x: panelPosition.x + xOffset,
         y: yOffset,
         z: panelPosition.z,
+        lookAtX: 0, // Look at camera position (center)
+        lookAtY: 1.6, // Eye level
+        lookAtZ: 0,
       });
     });
   } else if (layoutType === 'vertical') {
@@ -233,6 +236,9 @@ export function calculatePanelPositions(panels, layout) {
         x: panelPosition.x,
         y: yOffset,
         z: panelPosition.z,
+        lookAtX: 0, // Look at camera position (center)
+        lookAtY: 1.6, // Eye level
+        lookAtZ: 0,
       });
     });
   } else {
@@ -245,9 +251,12 @@ export function calculatePanelPositions(panels, layout) {
         x: panelPosition.x + xOffset,
         y: panelPosition.y,
         z: panelPosition.z,
+        lookAtX: 0, // Look at camera position (center)
+        lookAtY: 1.6, // Eye level
+        lookAtZ: 0,
       };
       positions.push(position);
-      logger.info(`[TemplateRenderer] Panel ${index} position: x=${position.x}, y=${position.y}, z=${position.z}`);
+      logger.info(`[TemplateRenderer] Panel ${index} position: x=${position.x}, y=${position.y}, z=${position.z}, lookAt: (${position.lookAtX}, ${position.lookAtY}, ${position.lookAtZ})`);
     });
   }
 

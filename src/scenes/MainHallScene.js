@@ -476,11 +476,54 @@ export class MainHallScene extends BaseScene {
     }
 
     logger.info(`[MainHallScene] Navigating to project room: ${projectData.title}`);
+    console.log(`[MainHallScene] ========== NAVIGATING TO PROJECT ROOM ==========`);
+    console.log(`[MainHallScene] Project data:`, {
+      id: projectData.id,
+      title: projectData.title,
+      mediaCount: projectData.media?.length || 0,
+      media: projectData.media,
+      hasMedia: !!projectData.media && projectData.media.length > 0
+    });
+
+    // Verify project has media - if not, try to get it from portfolioData
+    if (!projectData.media || projectData.media.length === 0) {
+      logger.warn(`[MainHallScene] Project ${projectData.title} has no media items in projectData!`);
+      console.warn(`[MainHallScene] ⚠️ Project ${projectData.title} has no media items!`);
+      console.warn(`[MainHallScene] Project data keys:`, Object.keys(projectData));
+      
+      // Try to find the project in portfolioData.projects with media
+      if (this.portfolioData?.projects) {
+        const projectWithMedia = this.portfolioData.projects.find(p => p.id === projectData.id);
+        if (projectWithMedia && projectWithMedia.media && projectWithMedia.media.length > 0) {
+          console.log(`[MainHallScene] ✅ Found project with media in portfolioData:`, {
+            id: projectWithMedia.id,
+            title: projectWithMedia.title,
+            mediaCount: projectWithMedia.media.length
+          });
+          projectData.media = projectWithMedia.media;
+          projectData = { ...projectData, ...projectWithMedia }; // Merge to ensure all data is present
+        } else {
+          console.warn(`[MainHallScene] ❌ Project not found in portfolioData.projects or has no media`);
+        }
+      }
+      
+      // Final check
+      if (!projectData.media || projectData.media.length === 0) {
+        logger.error(`[MainHallScene] Project ${projectData.title} has no media items after all attempts!`);
+        console.error(`[MainHallScene] ❌ Cannot navigate - project has no media!`);
+        return;
+      }
+    }
 
     // Import and load ProjectDetailScene (which acts as a project room)
     import("./ProjectDetailScene.js").then((module) => {
       const ProjectDetailScene = module.ProjectDetailScene;
       if (ProjectDetailScene) {
+        console.log(`[MainHallScene] Loading ProjectDetailScene with project data:`, {
+          id: projectData.id,
+          title: projectData.title,
+          mediaCount: projectData.media?.length || 0
+        });
         this.sceneManager.loadScene(ProjectDetailScene, {
           projectData: projectData,
           project: projectData, // Support both names for compatibility
@@ -491,6 +534,7 @@ export class MainHallScene extends BaseScene {
       }
     }).catch((error) => {
       logger.error("[MainHallScene] Failed to load ProjectDetailScene:", error);
+      console.error("[MainHallScene] ❌ Failed to load ProjectDetailScene:", error);
     });
   }
 
