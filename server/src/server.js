@@ -30,15 +30,27 @@ app.use(helmet({
   },
 }));
 
+// Handle favicon requests before CORS (browsers auto-request these)
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end(); // No Content
+});
+app.get('/favicon.png', (req, res) => {
+  res.status(204).end(); // No Content
+});
+
 // CORS configuration
 const corsOptions = {
   origin: (origin, callback) => {
+    // Allow requests with no origin (like favicon, direct API calls, etc.)
+    // But only for non-sensitive endpoints
+    if (!origin) {
+      // Allow no-origin requests (browsers, curl, etc.)
+      callback(null, true);
+      return;
+    }
+    
     // In development, allow all localhost origins (both HTTP and HTTPS)
     if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
       // Allow both HTTP and HTTPS localhost origins
       if (origin.startsWith('http://localhost:') || 
           origin.startsWith('https://localhost:') ||

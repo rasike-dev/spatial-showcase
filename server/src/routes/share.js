@@ -8,42 +8,90 @@ const router = express.Router();
 // Get portfolio by share token
 router.get('/:token', async (req, res, next) => {
   try {
-    const { token } = req.params;
+    // Decode token to handle URL encoding (e.g., %3D becomes =)
+    let { token } = req.params;
+    token = decodeURIComponent(token);
+    // Trim whitespace that might have been introduced
+    token = token.trim();
+    
     console.log('[Share Route] ========== FETCHING PORTFOLIO ==========');
-    console.log('[Share Route] Token received:', token);
+    console.log('[Share Route] Raw token from params:', req.params.token);
+    console.log('[Share Route] Decoded token:', token);
+    console.log('[Share Route] Token length:', token.length);
     console.log('[Share Route] Request URL:', req.originalUrl);
     console.log('[Share Route] Request method:', req.method);
+    console.log('[Share Route] Full request path:', req.path);
+
+    // Validate token format (should be hex string, typically 64 chars for 32 bytes)
+    if (!token || token.length < 10) {
+      console.log('[Share Route] ❌ Invalid token format (too short):', token);
+      return res.status(400).json({ error: 'Invalid share link token' });
+    }
 
     // First check share_links table for the token
+    console.log('[Share Route] Checking share_links table...');
     const shareLinkResult = await query(
-      `SELECT sl.portfolio_id, sl.expires_at, sl.token
+      `SELECT sl.portfolio_id, sl.expires_at, sl.token, sl.created_at
        FROM share_links sl
        WHERE sl.token = $1
        AND (sl.expires_at IS NULL OR sl.expires_at > NOW())`,
       [token]
     );
 
+    console.log('[Share Route] share_links query result:', {
+      found: shareLinkResult.rows.length > 0,
+      count: shareLinkResult.rows.length,
+      rows: shareLinkResult.rows.map(r => ({
+        portfolio_id: r.portfolio_id,
+        expires_at: r.expires_at,
+        created_at: r.created_at
+      }))
+    });
+
     let portfolioId = null;
     
     if (shareLinkResult.rows.length > 0) {
       // Found in share_links table
       portfolioId = shareLinkResult.rows[0].portfolio_id;
-      console.log('[Share Route] Found in share_links, portfolio_id:', portfolioId);
+      console.log('[Share Route] ✅ Found in share_links, portfolio_id:', portfolioId);
     } else {
       // Check if token matches portfolio share_token
+      console.log('[Share Route] Not found in share_links, checking portfolios.share_token...');
       const portfolioResult = await query(
-        `SELECT id FROM portfolios WHERE share_token = $1`,
+        `SELECT id, share_token FROM portfolios WHERE share_token = $1`,
         [token]
       );
       
+      console.log('[Share Route] portfolios.share_token query result:', {
+        found: portfolioResult.rows.length > 0,
+        count: portfolioResult.rows.length
+      });
+      
       if (portfolioResult.rows.length > 0) {
         portfolioId = portfolioResult.rows[0].id;
-        console.log('[Share Route] Found via portfolio share_token, portfolio_id:', portfolioId);
+        console.log('[Share Route] ✅ Found via portfolio share_token, portfolio_id:', portfolioId);
+      } else {
+        // Debug: Check if token exists but expired
+        const expiredCheck = await query(
+          `SELECT sl.portfolio_id, sl.expires_at, sl.token
+           FROM share_links sl
+           WHERE sl.token = $1`,
+          [token]
+        );
+        
+        if (expiredCheck.rows.length > 0) {
+          console.log('[Share Route] ⚠️ Token found but expired:', {
+            expires_at: expiredCheck.rows[0].expires_at,
+            now: new Date().toISOString()
+          });
+        } else {
+          console.log('[Share Route] ❌ Token not found in share_links or portfolios');
+        }
       }
     }
 
     if (!portfolioId) {
-      console.log('[Share Route] Token not found:', token);
+      console.log('[Share Route] ❌ Token not found or expired:', token);
       return res.status(404).json({ error: 'Portfolio not found or share link expired' });
     }
 

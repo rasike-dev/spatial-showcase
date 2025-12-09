@@ -25,8 +25,8 @@ function getApiBaseUrl() {
     return 'http://localhost:3000/api';
   }
   
-  // For production, always use HTTPS
-  return 'https://api.your-domain.com/api';
+  // For production, use the deployed Vercel API URL
+  return 'https://spatial-showcase-api.vercel.app/api';
 }
 
 const API_BASE_URL = getApiBaseUrl();
@@ -47,11 +47,14 @@ export async function getPortfolio(idOrToken, useCache = true) {
     }
   }
 
-  const url = `${API_BASE_URL}/share/${idOrToken}`;
+  // Encode the token to handle special characters in URLs
+  const encodedToken = encodeURIComponent(idOrToken);
+  const url = `${API_BASE_URL}/share/${encodedToken}`;
   logger.info('[API] Fetching portfolio from:', url);
   console.log('[API] ========== FETCHING PORTFOLIO ==========');
-  console.log('[API] URL:', url);
-  console.log('[API] Token/ID:', idOrToken);
+  console.log('[API] Original Token/ID:', idOrToken);
+  console.log('[API] Encoded Token/ID:', encodedToken);
+  console.log('[API] Full URL:', url);
 
   try {
     console.log('[API] Making request to:', url);
@@ -205,23 +208,38 @@ export async function trackEvent(portfolioId, eventType, eventData = {}) {
 
 /**
  * Get full media URL with proper protocol handling
+ * 
+ * Handles three types of URLs:
+ * 1. Full URLs (Blob CDN, external) - returns as-is
+ * 2. Relative paths starting with /uploads/ - constructs API URL
+ * 3. Other relative paths - constructs API URL
  */
 export function getMediaUrl(url) {
   if (!url) return null;
-  if (url.startsWith('http')) return url;
   
-  // Use API URL from environment variable
+  // If URL is already a full URL (http/https), return as-is
+  // This includes:
+  // - Vercel Blob URLs (https://xxx.public.blob.vercel-storage.com/...)
+  // - External CDN URLs
+  // - Any other full URLs
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  
+  // For relative paths, construct full URL using API base URL
   const apiBaseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 
                      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
                        ? 'http://localhost:3000'
-                       : 'https://your-api-domain.vercel.app');
+                       : 'https://spatial-showcase-api.vercel.app');
   
   if (url.startsWith('/uploads/')) {
+    // Local file storage path - serve via API
     const mediaUrl = `${apiBaseUrl}/api/media${url}`;
     console.log(`[API] Generated media URL: ${mediaUrl} from ${url}`);
     return mediaUrl;
   }
   
+  // Other relative paths
   const mediaUrl = `${apiBaseUrl}${url}`;
   console.log(`[API] Generated media URL: ${mediaUrl} from ${url}`);
   return mediaUrl;
