@@ -15,6 +15,10 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy for Vercel (required for rate limiting and correct IP detection)
+// Vercel acts as a reverse proxy, so we need to trust X-Forwarded-* headers
+app.set('trust proxy', true);
+
 // Security middleware - configure Helmet to allow cross-origin requests for media
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
