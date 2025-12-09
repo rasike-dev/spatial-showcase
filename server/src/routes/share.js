@@ -285,16 +285,27 @@ router.post('/:portfolioId/generate', authenticateToken, async (req, res, next) 
 
     // Use hash fragment instead of query parameter to avoid Vite routing issues
     // Hash fragments are handled entirely client-side
-    // Use HTTPS if mkcert is enabled (which it is in vite.config.js)
-    // Force HTTPS to match the VR app's actual URL
-    let baseUrl = process.env.VR_APP_URL || 'https://localhost:8081';
-    baseUrl = baseUrl.replace(/\/$/, '');
+    // Determine the VR app URL based on environment
+    let baseUrl;
     
-    // FORCE HTTPS for localhost:8081 (mkcert enables HTTPS, so we must use HTTPS)
-    if (baseUrl.includes('localhost:8081')) {
-      baseUrl = baseUrl.replace(/^http:\/\//, 'https://');
-      console.log('[Share Route] ⚠️ Forced HTTPS for localhost:8081:', baseUrl);
+    // In production (Vercel), use environment variable or default production URL
+    if (process.env.VERCEL || process.env.VERCEL_ENV) {
+      // Production environment - use VR_APP_URL or default to production domain
+      baseUrl = process.env.VR_APP_URL || 
+                process.env.VITE_ACTIVATION_URL || 
+                'https://spatial-showcase-vr-app.vercel.app';
+      console.log('[Share Route] Using production VR app URL:', baseUrl);
+    } else {
+      // Development environment - use localhost
+      baseUrl = process.env.VR_APP_URL || 'https://localhost:8081';
+      // FORCE HTTPS for localhost:8081 (mkcert enables HTTPS, so we must use HTTPS)
+      if (baseUrl.includes('localhost:8081')) {
+        baseUrl = baseUrl.replace(/^http:\/\//, 'https://');
+        console.log('[Share Route] ⚠️ Forced HTTPS for localhost:8081:', baseUrl);
+      }
     }
+    
+    baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
     
     const shareUrl = `${baseUrl}/#token=${shareToken}`;
     console.log('[Share Route] Final share URL generated:', shareUrl);
