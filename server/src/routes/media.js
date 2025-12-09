@@ -5,49 +5,85 @@ import { dirname, join } from 'path';
 import { query } from '../db/connection.js';
 import { authenticateToken } from '../middleware/auth.js';
 import fs from 'fs';
+import { put, del } from '@vercel/blob';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Configure multer for file uploads
-const uploadDir = process.env.UPLOAD_DIR || './uploads';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Check if Vercel Blob is configured
+const useBlobStorage = !!process.env.BLOB_READ_WRITE_TOKEN;
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `${uniqueSuffix}-${file.originalname}`);
-  }
-});
+// Configure multer based on storage type
+let upload;
+let uploadDir;
 
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 // 10MB default
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      ...(process.env.ALLOWED_IMAGE_TYPES?.split(',') || ['image/jpeg', 'image/png', 'image/webp']),
-      ...(process.env.ALLOWED_VIDEO_TYPES?.split(',') || ['video/mp4', 'video/webm'])
-    ];
+if (useBlobStorage) {
+  // Use memory storage for Vercel Blob (file will be in req.file.buffer)
+  const memoryStorage = multer.memoryStorage();
+  upload = multer({
+    storage: memoryStorage,
+    limits: {
+      fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 // 10MB default
+    },
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = [
+        ...(process.env.ALLOWED_IMAGE_TYPES?.split(',') || ['image/jpeg', 'image/png', 'image/webp']),
+        ...(process.env.ALLOWED_VIDEO_TYPES?.split(',') || ['video/mp4', 'video/webm'])
+      ];
 
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`File type ${file.mimetype} not allowed`));
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`File type ${file.mimetype} not allowed`));
+      }
     }
+  });
+} else {
+  // Use disk storage for local development
+  uploadDir = process.env.UPLOAD_DIR || './uploads';
+  
+  // Only create directory if it doesn't exist
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
   }
-});
+
+  const diskStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, `${uniqueSuffix}-${file.originalname}`);
+    }
+  });
+
+  upload = multer({
+    storage: diskStorage,
+    limits: {
+      fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 // 10MB default
+    },
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = [
+        ...(process.env.ALLOWED_IMAGE_TYPES?.split(',') || ['image/jpeg', 'image/png', 'image/webp']),
+        ...(process.env.ALLOWED_VIDEO_TYPES?.split(',') || ['video/mp4', 'video/webm'])
+      ];
+
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`File type ${file.mimetype} not allowed`));
+      }
+    }
+  });
+}
 
 const router = express.Router();
 
 // Upload media file
 router.post('/upload', authenticateToken, upload.single('file'), async (req, res, next) => {
+  let uploadedBlobUrl = null;
+  let localFilePath = null;
+
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -57,7 +93,19 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
 
     if (!type || !(project_id || portfolio_id)) {
       // Clean up uploaded file if validation fails
-      fs.unlinkSync(req.file.path);
+      if (useBlobStorage && uploadedBlobUrl) {
+        try {
+          await del(uploadedBlobUrl);
+        } catch (err) {
+          console.error('Failed to delete blob:', err);
+        }
+      } else if (req.file.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (err) {
+          console.error('Failed to delete local file:', err);
+        }
+      }
       return res.status(400).json({ error: 'Type and project_id or portfolio_id are required' });
     }
 
@@ -71,12 +119,20 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
       );
 
       if (projectCheck.rows.length === 0) {
-        fs.unlinkSync(req.file.path);
+        if (useBlobStorage && uploadedBlobUrl) {
+          await del(uploadedBlobUrl).catch(() => {});
+        } else if (req.file.path) {
+          fs.unlinkSync(req.file.path);
+        }
         return res.status(404).json({ error: 'Project not found' });
       }
 
       if (projectCheck.rows[0].user_id !== req.user.userId) {
-        fs.unlinkSync(req.file.path);
+        if (useBlobStorage && uploadedBlobUrl) {
+          await del(uploadedBlobUrl).catch(() => {});
+        } else if (req.file.path) {
+          fs.unlinkSync(req.file.path);
+        }
         return res.status(403).json({ error: 'Access denied' });
       }
     }
@@ -89,18 +145,41 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
       );
 
       if (portfolioCheck.rows.length === 0) {
-        fs.unlinkSync(req.file.path);
+        if (useBlobStorage && uploadedBlobUrl) {
+          await del(uploadedBlobUrl).catch(() => {});
+        } else if (req.file.path) {
+          fs.unlinkSync(req.file.path);
+        }
         return res.status(404).json({ error: 'Portfolio not found' });
       }
 
       if (portfolioCheck.rows[0].user_id !== req.user.userId) {
-        fs.unlinkSync(req.file.path);
+        if (useBlobStorage && uploadedBlobUrl) {
+          await del(uploadedBlobUrl).catch(() => {});
+        } else if (req.file.path) {
+          fs.unlinkSync(req.file.path);
+        }
         return res.status(403).json({ error: 'Access denied' });
       }
     }
 
-    // Construct URL (in production, this would be a CDN URL)
-    const fileUrl = `/uploads/${req.file.filename}`;
+    // Upload file to storage
+    let fileUrl;
+    
+    if (useBlobStorage) {
+      // Upload to Vercel Blob
+      const uniqueFilename = `${Date.now()}-${Math.round(Math.random() * 1E9)}-${req.file.originalname}`;
+      const blob = await put(uniqueFilename, req.file.buffer, {
+        access: 'public',
+        contentType: req.file.mimetype,
+      });
+      uploadedBlobUrl = blob.url;
+      fileUrl = blob.url;
+    } else {
+      // Use local file path
+      fileUrl = `/uploads/${req.file.filename}`;
+      localFilePath = req.file.path;
+    }
 
     // Use provided name/title, or derive from filename
     const mediaName = name || req.file.originalname;
@@ -136,7 +215,13 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
     });
     
     // Clean up uploaded file if it exists
-    if (req.file && req.file.path) {
+    if (useBlobStorage && uploadedBlobUrl) {
+      try {
+        await del(uploadedBlobUrl);
+      } catch (unlinkError) {
+        console.error('[Media Route] Failed to delete blob:', unlinkError);
+      }
+    } else if (req.file && req.file.path) {
       try {
         fs.unlinkSync(req.file.path);
       } catch (unlinkError) {
@@ -276,10 +361,25 @@ router.delete('/:id', authenticateToken, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Delete file from filesystem
-    const filePath = join(__dirname, '../../', media.url);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Delete file from storage
+    if (useBlobStorage && media.url.startsWith('http')) {
+      // Delete from Vercel Blob (URL is a full Blob URL)
+      try {
+        await del(media.url);
+      } catch (blobError) {
+        console.error('[Media Route] Failed to delete blob:', blobError);
+        // Continue with database deletion even if blob deletion fails
+      }
+    } else if (!useBlobStorage && media.url.startsWith('/uploads/')) {
+      // Delete from local filesystem
+      const filePath = join(__dirname, '../../', media.url);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (fsError) {
+          console.error('[Media Route] Failed to delete local file:', fsError);
+        }
+      }
     }
 
     // Delete from database
@@ -291,35 +391,36 @@ router.delete('/:id', authenticateToken, async (req, res, next) => {
   }
 });
 
-// Serve uploaded files with CORS headers
-router.use('/uploads', (req, res, next) => {
-  // Set CORS headers for static files (matching global CORS config)
-  const origin = req.headers.origin;
-  
-  // In development, allow all localhost origins
-  if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
-    if (origin && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
+// Serve uploaded files with CORS headers (only for local development)
+if (!useBlobStorage && uploadDir) {
+  router.use('/uploads', (req, res, next) => {
+    // Set CORS headers for static files (matching global CORS config)
+    const origin = req.headers.origin;
+    
+    // In development, allow all localhost origins
+    if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+      if (origin && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+      }
+    } else {
+      // In production, check against allowed origins
+      const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [];
+      if (origin && allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+      }
     }
-  } else {
-    // In production, check against allowed origins
-    const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [];
-    if (origin && allowedOrigins.includes(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+    // Allow all methods and headers for preflight requests
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      return res.status(200).end();
     }
-  }
-  
-  // Allow all methods and headers for preflight requests
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    return res.status(200).end();
-  }
-  
-  next();
-}, express.static(uploadDir));
+    
+    next();
+  }, express.static(uploadDir));
+}
 
 export default router;
-
