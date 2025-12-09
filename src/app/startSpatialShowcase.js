@@ -181,9 +181,18 @@ function getPortfolioIdFromURL() {
     // Try URLSearchParams first
     try {
       const hashParams = new URLSearchParams(hash.substring(1)); // Remove #
-      const tokenFromHash = hashParams.get('token');
+      let tokenFromHash = hashParams.get('token');
       if (tokenFromHash) {
+        // Decode URL encoding that might be in the hash
+        try {
+          tokenFromHash = decodeURIComponent(tokenFromHash);
+        } catch (e) {
+          console.log('[getPortfolioIdFromURL] decodeURIComponent failed, using raw token:', e);
+        }
+        // Trim any whitespace
+        tokenFromHash = tokenFromHash.trim();
         console.log('[getPortfolioIdFromURL] ✅ Found token in hash (URLSearchParams):', tokenFromHash);
+        console.log('[getPortfolioIdFromURL] Token length:', tokenFromHash.length);
         logger.info('[getPortfolioIdFromURL] Found token in hash:', tokenFromHash);
         return tokenFromHash;
       }
@@ -194,8 +203,17 @@ function getPortfolioIdFromURL() {
     // Fallback: Manual parsing for hash like #token=ABC123
     const hashMatch = hash.match(/[#&]token=([^&]+)/);
     if (hashMatch && hashMatch[1]) {
-      const tokenFromHash = hashMatch[1];
+      let tokenFromHash = hashMatch[1];
+      // Decode URL encoding that might be in the hash
+      try {
+        tokenFromHash = decodeURIComponent(tokenFromHash);
+      } catch (e) {
+        console.log('[getPortfolioIdFromURL] decodeURIComponent failed, using raw token:', e);
+      }
+      // Trim any whitespace
+      tokenFromHash = tokenFromHash.trim();
       console.log('[getPortfolioIdFromURL] ✅ Found token in hash (manual parse):', tokenFromHash);
+      console.log('[getPortfolioIdFromURL] Token length:', tokenFromHash.length);
       logger.info('[getPortfolioIdFromURL] Found token in hash (manual):', tokenFromHash);
       return tokenFromHash;
     }

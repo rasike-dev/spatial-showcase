@@ -28,15 +28,48 @@ router.get('/:token', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid share link token' });
     }
 
-    // First check share_links table for the token
+    // First check share_links table for the token (case-insensitive, trimmed)
     console.log('[Share Route] Checking share_links table...');
-    const shareLinkResult = await query(
+    console.log('[Share Route] Token to search:', JSON.stringify(token));
+    console.log('[Share Route] Token length:', token.length);
+    
+    // Try exact match first
+    let shareLinkResult = await query(
       `SELECT sl.portfolio_id, sl.expires_at, sl.token, sl.created_at
        FROM share_links sl
        WHERE sl.token = $1
        AND (sl.expires_at IS NULL OR sl.expires_at > NOW())`,
       [token]
     );
+
+    // If not found, try case-insensitive match (in case of encoding issues)
+    if (shareLinkResult.rows.length === 0) {
+      console.log('[Share Route] Exact match not found, trying case-insensitive...');
+      shareLinkResult = await query(
+        `SELECT sl.portfolio_id, sl.expires_at, sl.token, sl.created_at
+         FROM share_links sl
+         WHERE LOWER(sl.token) = LOWER($1)
+         AND (sl.expires_at IS NULL OR sl.expires_at > NOW())`,
+        [token]
+      );
+    }
+
+    // Debug: Check all tokens in share_links for this token pattern
+    if (shareLinkResult.rows.length === 0) {
+      console.log('[Share Route] Token not found, checking all share_links...');
+      const allLinks = await query(
+        `SELECT token, portfolio_id, expires_at, created_at
+         FROM share_links
+         ORDER BY created_at DESC
+         LIMIT 5`
+      );
+      console.log('[Share Route] Recent share_links:', allLinks.rows.map(r => ({
+        token: r.token.substring(0, 20) + '...',
+        token_length: r.token.length,
+        portfolio_id: r.portfolio_id,
+        expires_at: r.expires_at
+      })));
+    }
 
     console.log('[Share Route] share_links query result:', {
       found: shareLinkResult.rows.length > 0,
