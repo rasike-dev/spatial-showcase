@@ -210,16 +210,19 @@ export function getMediaUrl(url) {
   if (!url) return null;
   if (url.startsWith('http')) return url;
   
-  // For localhost development, explicitly use HTTP to avoid mixed content auto-upgrade
-  const baseUrl = 'http://localhost:3000';
+  // Use API URL from environment variable
+  const apiBaseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 
+                     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                       ? 'http://localhost:3000'
+                       : 'https://your-api-domain.vercel.app');
   
   if (url.startsWith('/uploads/')) {
-    const mediaUrl = `${baseUrl}/api/media${url}`;
+    const mediaUrl = `${apiBaseUrl}/api/media${url}`;
     console.log(`[API] Generated media URL: ${mediaUrl} from ${url}`);
     return mediaUrl;
   }
   
-  const mediaUrl = `${baseUrl}${url}`;
+  const mediaUrl = `${apiBaseUrl}${url}`;
   console.log(`[API] Generated media URL: ${mediaUrl} from ${url}`);
   return mediaUrl;
 }

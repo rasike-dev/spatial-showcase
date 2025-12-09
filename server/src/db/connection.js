@@ -5,13 +5,45 @@ dotenv.config();
 
 const { Pool } = pg;
 
+// Use Vercel's POSTGRES_URL if available (from Neon or Vercel Postgres)
+// Otherwise, use individual environment variables for backward compatibility
+const getConnectionConfig = () => {
+  // Priority 1: Use POSTGRES_URL (Vercel/Neon connection string)
+  if (process.env.POSTGRES_URL) {
+    return {
+      connectionString: process.env.POSTGRES_URL,
+      ssl: {
+        rejectUnauthorized: false // Required for Neon/Vercel Postgres
+      }
+    };
+  }
+  
+  // Priority 2: Use POSTGRES_PRISMA_URL (if available)
+  if (process.env.POSTGRES_PRISMA_URL) {
+    return {
+      connectionString: process.env.POSTGRES_PRISMA_URL,
+      ssl: {
+        rejectUnauthorized: false
+      }
+    };
+  }
+  
+  // Priority 3: Use individual environment variables (for local development)
+  return {
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 5432,
+    database: process.env.DB_NAME || 'spatial_showcase',
+    user: process.env.DB_USER || process.env.USER || 'admin',
+    password: process.env.DB_PASSWORD || '',
+    ssl: process.env.DB_SSL === 'true' ? {
+      rejectUnauthorized: false
+    } : undefined
+  };
+};
+
 // Database connection pool
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'spatial_showcase',
-  user: process.env.DB_USER || process.env.USER || 'admin', // Use system user on macOS
-  password: process.env.DB_PASSWORD || '', // Usually no password for local dev
+  ...getConnectionConfig(),
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
